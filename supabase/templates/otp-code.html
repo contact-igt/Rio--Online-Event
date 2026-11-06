@@ -1,0 +1,16 @@
+<!--
+  Email for the one-time sign-in code. Used for BOTH Supabase flows a parent can trigger:
+  a new parent receives the "Confirm signup" template, a returning parent the "Magic link" template.
+  Both must contain {{ .Token }} (the 6-digit code) and must NOT rely on {{ .ConfirmationURL }}, because
+  the app asks the parent to type the code. Tamil first, English second.
+-->
+<div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #0b1b2e;">
+  <h2 style="color: #063c78; margin: 0 0 12px;">மழலைத் தமிழே! · Rio Hospital Children's Day 2026</h2>
+  <p style="margin: 0 0 4px;">உங்கள் சரிபார்ப்புக் குறியீடு:</p>
+  <p style="margin: 0 0 16px; color: #475569;">Your verification code:</p>
+  <p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; margin: 0 0 16px; color: #063c78;">{{ .Token }}</p>
+  <p style="margin: 0 0 4px;">இந்தக் குறியீட்டை இணையதளத்தில் உள்ளிடுங்கள். இது சிறிது நேரத்தில் காலாவதியாகும்.</p>
+  <p style="margin: 0 0 16px; color: #475569;">Enter this code on the website. It expires after a while.</p>
+  <p style="margin: 0 0 4px;">நீங்கள் இதைக் கோரவில்லை என்றால், இந்த மின்னஞ்சலைப் புறக்கணிக்கவும்.</p>
+  <p style="margin: 0; color: #475569;">If you did not ask for this code, ignore this email.</p>
+</div>

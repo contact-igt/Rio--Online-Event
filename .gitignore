@@ -1,0 +1,49 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# next.js
+/.next/
+/.next-*/
+/out/
+next-env.d.ts
+
+# build and test output
+/build
+/coverage
+/playwright-report/
+/test-results/
+*.tsbuildinfo
+
+# secrets: never commit. Only .env.example (names, no values) is tracked.
+.env
+.env.*
+!.env.example
+.env.live
+
+# deployment
+.vercel
+
+# logs and OS files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+*.pem
+
+# editor / tool local state
+.idea/
+.vscode/
+graphify-out/
+
+# supabase CLI local state (may record a linked hosted project)
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+
+# design reference mock-ups and review screenshots (not part of the product)
+/design-references/
+/screenshots/
