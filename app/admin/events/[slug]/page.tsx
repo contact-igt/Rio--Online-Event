@@ -52,14 +52,14 @@ export default async function AdminEventPage({ params }: { params: Promise<{ slu
         </span>
       </p>
 
-      <h2 className="mt-10 font-display text-2xl font-bold text-rio-navy">
+      <h2 id="assign" className="mt-10 scroll-mt-4 font-display text-2xl font-bold text-rio-navy">
         <Bilingual m={staff.admin.assign} />
       </h2>
       <div className="mt-3 max-w-xl">
         <AssignJudgeForm slug={event.slug} judges={(judgesRes.data ?? []).map((j) => ({ id: j.user_id as string, name: j.display_name as string }))} />
       </div>
 
-      <h2 className="mt-10 font-display text-2xl font-bold text-rio-navy">
+      <h2 id="ranking" className="mt-10 scroll-mt-4 font-display text-2xl font-bold text-rio-navy">
         <Bilingual m={staff.admin.ranking} />
       </h2>
       <p className="text-rio-slate">Only entries that every assigned judge has finalized are ranked. Equal averages are flagged as ties and are never resolved automatically.</p>
@@ -114,7 +114,7 @@ export default async function AdminEventPage({ params }: { params: Promise<{ slu
         </table>
       </div>
 
-      <h2 className="mt-10 font-display text-2xl font-bold text-rio-navy">
+      <h2 id="winners" className="mt-10 scroll-mt-4 font-display text-2xl font-bold text-rio-navy">
         <Bilingual m={staff.admin.winners} />
       </h2>
       <ul className="mt-3 space-y-3">

@@ -47,3 +47,9 @@ supabase/.env
 # design reference mock-ups and review screenshots (not part of the product)
 /design-references/
 /screenshots/
+
+# written by `next dev` (agent rules); not part of the product
+/AGENTS.md
+
+# root-level copies of the design mock-ups (design references only; the originals live in design-references/)
+/0[1-6]-*.png

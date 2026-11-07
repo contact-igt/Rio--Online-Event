@@ -5,8 +5,8 @@ import { staff } from "@/lib/staff/messages";
 
 // A thin light-blue bar above the administrator and judge areas with the sign-out button. It renders only for a verified member of that role,
 // so a signed-in parent who lands on a 404 under /admin is shown nothing that reveals the area exists.
-export async function StaffBar({ role }: { role: StaffRole }) {
-  if (!(await staffSession(role))) return null;
+export async function StaffBar({ role, verified = false }: { role: StaffRole; verified?: boolean }) {
+  if (!verified && !(await staffSession(role))) return null; // `verified`: the layout already checked, so do not ask Supabase twice
   return (
     <div className="border-b border-rio-navy/10 bg-rio-mist">
       <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">

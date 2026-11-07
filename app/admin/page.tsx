@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Bilingual } from "@/components/auth/bilingual";
 import { Icon, eventIcon, type IconName } from "@/components/ui/icon";
+import { formatIst, TIME_ZONE } from "@/lib/admin/format";
 import { events } from "@/lib/events";
+import { isRegistrationOpen } from "@/lib/registration/settings";
 import { requireStaff } from "@/lib/staff/auth";
 import { staff } from "@/lib/staff/messages";
 
@@ -20,13 +22,17 @@ const td = "px-3 py-3 align-middle";
 export default async function AdminPage() {
   const { supabase } = await requireStaff("admin");
   // Counts only: no child or parent field is selected on this screen. Every number below is counted from these rows.
-  const [subs, judges, assignments, scores, winners] = await Promise.all([
+  const [subs, judges, assignments, scores, winners, settingsRes] = await Promise.all([
     supabase.from("submissions").select("event_id, status").limit(5000),
     supabase.from("judge_profiles").select("user_id, display_name, active").order("display_name"),
     supabase.from("judge_assignments").select("judge_id").limit(5000),
     supabase.from("scores").select("judge_id, status").limit(5000),
     supabase.from("winners").select("id").limit(5000),
+    supabase.from("event_settings").select("submissions_open_at, submissions_close_at, current_consent_version").maybeSingle(),
   ]);
+  // Read-only: the registration window as configured in event_settings. Nothing on this screen changes it.
+  const cfg = settingsRes.data as { submissions_open_at: string | null; submissions_close_at: string | null; current_consent_version: string | null } | null;
+  const registrationOpen = isRegistrationOpen(cfg ? { opensAt: cfg.submissions_open_at, closesAt: cfg.submissions_close_at, consentVersion: cfg.current_consent_version } : null);
   const submissions = (subs.data ?? []) as { event_id: number; status: (typeof STATUSES)[number]["key"] }[];
   const count = (eventId: number, status: string) => submissions.filter((s) => s.event_id === eventId && s.status === status).length;
   const total = (status: string) => submissions.filter((s) => s.status === status).length;
@@ -71,7 +77,40 @@ export default async function AdminPage() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:items-start">
         <div className="min-w-0 space-y-6">
-          <div className="card p-4 sm:p-6">
+          <div id="event-settings" className="card scroll-mt-4 p-4 sm:p-6">
+            <h2 className="flex items-center gap-3 font-display text-2xl font-bold text-rio-navy">
+              <Icon name="calendar" className="h-7 w-7 text-rio-rose" />
+              Event settings <span lang="ta" className="font-medium">/ நிகழ்வு அமைப்புகள்</span>
+            </h2>
+            <dl className="mt-3 divide-y divide-rio-navy/10">
+              <div className="grid gap-x-4 py-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+                <dt className="text-rio-slate">Registration</dt>
+                <dd className="font-semibold">
+                  <span className={`inline-block rounded-full px-3 py-0.5 ${registrationOpen ? "bg-[#dff5e8] text-rio-ok" : "bg-slate-100 text-rio-slate"}`}>{registrationOpen ? "Open" : "Closed"}</span>
+                </dd>
+              </div>
+              <div className="grid gap-x-4 py-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+                <dt className="text-rio-slate">Opening date and time</dt>
+                <dd className="font-semibold text-rio-navy">{cfg?.submissions_open_at ? formatIst(cfg.submissions_open_at) : "Not configured"}</dd>
+              </div>
+              <div className="grid gap-x-4 py-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+                <dt className="text-rio-slate">Closing date and time</dt>
+                <dd className="font-semibold text-rio-navy">{cfg?.submissions_close_at ? formatIst(cfg.submissions_close_at) : "Not configured"}</dd>
+              </div>
+              <div className="grid gap-x-4 py-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+                <dt className="text-rio-slate">Timezone</dt>
+                <dd className="font-semibold text-rio-navy">
+                  {TIME_ZONE} <span className="font-medium text-rio-slate">(IST, UTC+05:30)</span>
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-3 flex items-start gap-3 rounded-2xl bg-rio-mist p-3 text-sm">
+              <Icon name="lock" className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>Read-only. The registration dates cannot be changed from this screen. Registration is closed unless both dates and a consent wording are configured and the current time is inside the window.</span>
+            </p>
+          </div>
+
+          <div id="competitions" className="card scroll-mt-4 p-4 sm:p-6">
             <h2 className="flex items-center gap-3 font-display text-2xl font-bold text-rio-navy">
               <Icon name="trophy" className="h-7 w-7 text-rio-rose" />
               <Bilingual m={staff.admin.competitions} />
@@ -185,6 +224,14 @@ export default async function AdminPage() {
             Assign judges, review rankings and confirm winners on each competition&apos;s page.
           </p>
           <ul className="mt-3">
+            {[{ href: "/admin/registrations", label: "Registrations" }, { href: "/admin/judges", label: "Judges" }].map((l) => (
+              <li key={l.href} className="border-t border-rio-navy/10 first:border-0">
+                <Link href={l.href} className="flex min-h-11 items-center justify-between gap-2 font-semibold text-rio-navy hover:text-rio-rose">
+                  <span>{l.label}</span>
+                  <Icon name="chevron" className="h-4 w-4" />
+                </Link>
+              </li>
+            ))}
             {events.map((e) => (
               <li key={e.slug} className="border-t border-rio-navy/10 first:border-0">
                 <Link href={`/admin/events/${e.slug}`} className="flex min-h-11 items-center justify-between gap-2 font-semibold text-rio-navy hover:text-rio-rose">

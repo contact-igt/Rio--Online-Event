@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 // themselves, and the response headers do not name the private bucket while playback and uploads are switched off.
 
 test.describe("signed-out visitors", () => {
-  for (const path of ["/admin", "/admin/events/kutti-pesalar", "/judge", "/judge/entries/bbbbbbbb-0000-4000-8000-0000000000b1"]) {
+  for (const path of ["/admin", "/admin/registrations", "/admin/judges", "/admin/events/kutti-pesalar", "/judge", "/judge/entries/bbbbbbbb-0000-4000-8000-0000000000b1"]) {
     test(`${path} sends a signed-out visitor to the staff sign-in and shows nothing`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL(/\/staff\/login$/);

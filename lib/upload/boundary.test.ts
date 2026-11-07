@@ -18,7 +18,7 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 const files = walk(ROOT).map((p) => ({ path: relative(ROOT, p).replaceAll("\\", "/"), text: readFileSync(p, "utf8") }));
 const isTest = (p: string) => /\.test\.|\.spec\.|^e2e/.test(p);
-const SERVER_ONLY = ["lib/storage/object-store", "lib/supabase/admin", "lib/upload/server", "lib/upload/service", "lib/upload/cleanup", "@aws-sdk"];
+const SERVER_ONLY = ["lib/storage/object-store", "lib/supabase/admin", "lib/upload/server", "lib/upload/service", "lib/upload/cleanup", "lib/staff/invites", "@aws-sdk"];
 
 describe("server-only modules never reach the browser", () => {
   const clientFiles = files.filter((f) => !isTest(f.path) && /^\s*["']use client["']/.test(f.text));
@@ -47,7 +47,7 @@ describe("server-only modules never reach the browser", () => {
   it("the secret-key client and the bucket client are imported only by server code", () => {
     for (const f of files.filter((x) => !isTest(x.path))) {
       const imports = /from\s+["'](@\/lib\/supabase\/admin|@\/lib\/storage\/object-store|\.\.?\/(admin|object-store)(\.ts)?)["']/.test(f.text);
-      if (imports) expect(f.path, "unexpected importer").toMatch(/^(lib\/(upload|submit|judging|email|storage|supabase)\/|app\/events\/\[slug\]\/register\/|scripts\/)/);
+      if (imports) expect(f.path, "unexpected importer").toMatch(/^(lib\/(upload|submit|judging|email|storage|supabase|staff)\/|app\/events\/\[slug\]\/register\/|scripts\/)/);
     }
   });
 });
@@ -310,9 +310,19 @@ describe("staff email-and-password sign-in (no public staff registration, no sto
   });
 
   it("nothing in the application can register a staff account or sign anyone up", () => {
+    // Two narrow exceptions, added deliberately for judge invitations (see lib/staff/admin-boundary.test.ts): an administrator-only server
+    // action invites a judge by e-mail in lib/staff/invites.ts, and the invited person chooses a password in app/staff/set-password/actions.ts.
+    // Sign-up, createUser and password-reset e-mails stay banned everywhere.
+    const INVITE = /inviteUserByEmail/g;
+    const SET_PASSWORD = /updateUser\(\s*\{\s*password/g;
     for (const f of source.filter((x) => /^(app|components|lib)\//.test(x.path))) {
-      expect(f.text, f.path).not.toMatch(/\.signUp\(|auth\.admin\.createUser|inviteUserByEmail|resetPasswordForEmail|updateUser\(\s*\{\s*password/);
+      let text = f.text;
+      if (f.path === "lib/staff/invites.ts") text = text.replace(INVITE, "");
+      if (f.path === "app/staff/set-password/actions.ts") text = text.replace(SET_PASSWORD, "");
+      expect(text, f.path).not.toMatch(/\.signUp\(|auth\.admin\.createUser|inviteUserByEmail|resetPasswordForEmail|updateUser\(\s*\{\s*password/);
     }
+    expect(source.filter((f) => /^(app|components|lib)\//.test(f.path) && INVITE.test(f.text)).map((f) => f.path)).toEqual(["lib/staff/invites.ts"]);
+    expect(source.filter((f) => /^(app|components|lib)\//.test(f.path) && SET_PASSWORD.test(f.text)).map((f) => f.path)).toEqual(["app/staff/set-password/actions.ts"]);
     // parents still sign in with an e-mailed code, in exactly one place
     expect(source.filter((f) => /signInWithOtp/.test(f.text)).map((f) => f.path)).toEqual(["app/signin/actions.ts"]);
   });
@@ -350,7 +360,9 @@ describe("staff email-and-password sign-in (no public staff registration, no sto
     const bar = get("components/staff/staff-bar.tsx");
     expect(bar).toContain("staffSession(role)");
     expect(bar).toContain("staffSignOut");
-    expect(get("app/admin/layout.tsx")).toContain('<StaffBar role="admin" />');
+    // the admin layout checks the role once and tells the bar so (verified); the bar then skips its own second check
+    expect(get("app/admin/layout.tsx")).toContain('staffSession("admin")');
+    expect(get("app/admin/layout.tsx")).toContain('<StaffBar role="admin" verified />');
     expect(get("app/judge/layout.tsx")).toContain('<StaffBar role="judge" />');
   });
 });

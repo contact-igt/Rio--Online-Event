@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveDraft } from "@/app/events/[slug]/register/actions";
+import { saveDraft, type SaveState } from "@/app/events/[slug]/register/actions";
 import { Bilingual, FieldError } from "@/components/auth/bilingual";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -22,6 +22,9 @@ type Props = {
   email: string;
   consent: { version: string; notice: Msg; guardian: Msg; media: Msg };
   draft: FormDraft | null;
+  /** Only the development preview passes these: its own action (which never saves) and a ready-made state to show. The real page never does. */
+  action?: (prev: SaveState, formData: FormData) => Promise<SaveState>;
+  initialState?: SaveState;
 };
 
 const check = "mt-1 h-6 w-6 shrink-0 accent-rio-rose";
@@ -38,8 +41,8 @@ function SectionBar({ icon, m, tone = "mist" }: { icon: IconName; m: Msg; tone?:
   );
 }
 
-export function RegistrationForm({ event, email, consent, draft }: Props) {
-  const [state, action] = useActionState(saveDraft, undefined);
+export function RegistrationForm({ event, email, consent, draft, action: submitAction = saveDraft, initialState }: Props) {
+  const [state, action] = useActionState(submitAction, initialState);
   const v = state?.values;
   // React resets a form after every action. A text input's defaultValue follows the values the action returned, but a
   // <select>'s does not, so the age fell back to "Choose" after any error while the other fields kept theirs. Keying the

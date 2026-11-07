@@ -48,6 +48,7 @@ Set in Vercel **Production** scope only. Nothing here exists in any production e
 | `EMAIL_FROM` | no | no | a sender on a domain verified with the provider (SPF, DKIM, DMARC), for example `Rio Hospital <noreply@your-domain>` |
 | `EMAIL_REPLY_TO` | no | no | optional |
 | `CRON_SECRET` | **yes** | no | at least 32 random characters; the scheduler sends it as `Authorization: Bearer ...` to `/api/email-sweep`, which retries failed e-mails (404 for everyone else) |
+| `RIO_STAFF_INVITES_ENABLED` | no | no | `no` unless exactly `yes`. Judge invitations from `/admin/judges`. While off, the form is disabled with a visible warning and no Supabase Auth call is made. Turn it on only after Supabase Authentication has working custom SMTP, the invitation template is pasted in and a test invitation was received. Also needs `SUPABASE_SECRET_KEY` (server-only) |
 
 Never set in Vercel: `RIO_DIST_DIR`, `RIO_DEV_PROJECT_REF`, `RIO_CONFIRM_PUSH`, `RIO_LIVE_*`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DEV_POOLER_URL`
 (tooling and tests only). Preview deployments must have no production secrets (point them at DEV or give them none). Check R2 settings without printing
@@ -61,6 +62,7 @@ them: `npm run r2:check`.
 | Supabase Auth | configure | email provider on, other providers off; OTP length and expiry fixed; site URL = production domain; project rate limits on; **custom SMTP** (see below) |
 | Email delivery | create | Two separate uses of e-mail: (1) Supabase Auth sign-in codes, which need custom SMTP (the built-in sender allows only a handful per hour: not usable for launch) and the template `supabase/templates/otp-code.html`; (2) the app's confirmation e-mail through the provider API above. A domain with SPF, DKIM and DMARC serves both; the same provider can do both |
 | Scheduler | create | a Vercel Cron (or any scheduler) calling `GET /api/email-sweep` with the bearer secret every 5 to 10 minutes once e-mail is enabled; add the cron entry to `vercel.json` at that time (not present now) |
+| Supabase Auth: staff invitations | configure | Authentication > Email Templates > Invite user: paste `supabase/templates/invite-judge.html` (the link opens `/staff/set-password` with a one-time token, so the judge chooses a password; no password is ever e-mailed). Authentication > URL Configuration > Site URL: the website address. Custom SMTP must be working (the built-in sender allows only a few e-mails per hour). Password rules (length, strength) are set in Authentication > Providers > Email |
 | Cloudflare R2 production bucket | create | **private**: no custom domain, `r2.dev` off. Token scoped to this bucket only. CORS: `PUT` from the production origin only (no wildcard), header `Content-Type`, expose `ETag`. Lifecycle: delete `pending/` objects after 1 day. No other public access |
 | Vercel project | create | paid plan (the free plan is not for commercial use); region near Supabase; deployment protection on previews; function duration long enough for final submission (it reads up to 14 small ranges from R2) |
 | Domain and HTTPS | client to supply | Vercel issues the certificate; the app already sends HSTS and `upgrade-insecure-requests` |
@@ -104,6 +106,7 @@ Blocker = do not launch until resolved or explicitly accepted in writing by the 
 | B12 | Switches are fixed at build time: enabling one needs a redeploy | Operational note |
 | B13 | Confirmation e-mail has never been sent for real: provider not chosen, domain not verified, migration 00800 not applied, no scheduler. Everything is tested with mocks only. The app promises an e-mail nowhere while it is off | **Blocker for the confirmation e-mail only** (leave `RIO_EMAIL_ENABLED=no` and the launch can proceed without it) |
 | B14 | The logo used everywhere is the supplied `rio logo v2.png` (giraffe, in the approved mock-ups 03 to 06). Mock-up 01 and 02 show a different lotus logo that was not supplied, and no hero photograph or illustrations were supplied: the owner must provide approved files if wanted | Should-fix |
+| B15 | Judge invitations have never been sent for real: no hosted account was created, SMTP and the invitation template are not configured or tested, and `RIO_STAFF_INVITES_ENABLED` is `no`. Existing judges are unaffected | **Blocker for inviting judges from the screen only** (the two provisioned DEV accounts keep working) |
 
 ## 6. Deployment steps (each needs the owner's explicit approval; do not run any of them without it)
 
@@ -178,5 +181,6 @@ All must be "Met" for GO. Today's status is the right-hand column.
 | 17 | All three switches `no` until their step in section 6 | Met |
 | 18 | Confirmation e-mail: provider chosen, domain verified, 00800 applied, a real test e-mail received, scheduler set; or the owner accepts launching without it | **Not met** (e-mail stays `no`) |
 | 19 | The owner approves the new look of the public pages (pink and indigo palette, logo file) | **Not met** |
+| 20 | Judge invitations: SMTP and the invitation template configured, one real invitation received and a password set, then `RIO_STAFF_INVITES_ENABLED=yes`; or the owner accepts creating judges by the provisioning script | **Not met** (invitations stay `no`) |
 
 **Decision today: NO-GO / NOT READY for production deployment.**

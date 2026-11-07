@@ -10,7 +10,7 @@
 | Target launch | **2026-11-05** (see §9, Risk R1: this date is today) |
 | Winner announcement | **2026-11-14** |
 | Repo | `https://github.com/contact-igt/Rio--Online-Event.git` (empty, no commits) |
-| Brief version | Final UI/UX redesign built and tested offline (§36); landing refinement and confirmation e-mail (§35); staff sign-in (§34) — 2026-11-06 |
+| Brief version | Admin, judge and registration management built and tested offline (§37); final UI/UX redesign (§36); landing refinement and confirmation e-mail (§35) — 2026-11-07 |
 
 ---
 
@@ -1790,3 +1790,30 @@ New or rewritten: landing, competitions (age filter checked against `fitsAge` fo
 
 ### 36.3 Missing approved assets
 Hero photograph of two children, per-competition illustrations, success-page celebration art, building and giraffe background art, the lotus logo of mock-ups 01 and 02. None was supplied, so none was drawn (CLAUDE.md bans redrawn artwork); monoline icons and CSS shapes stand in.
+
+
+## 37. Admin, judge and registration management (2026-11-07): built and tested offline
+
+Local work only: no migration (none is needed), no hosted write, no staff account or invitation created, no e-mail sent, no R2 write, registration not opened, nothing committed or deployed. All switches are off, including the new `RIO_STAFF_INVITES_ENABLED`.
+
+### 37.1 What was added
+- **Staff Access** in the public header (menu), the phone Menu and the footer: Admin Login and Judge Login, both to the existing `/staff/login`. `?role=admin|judge` only changes the heading and is never read for access; there is still one sign-in.
+- **Admin sidebar** (Dashboard, Registrations, Judges, Assign Judges, Scoring, Results, Event Settings), shown only to a verified administrator. The last four open existing sections (competition page anchors, the dashboard's settings), not new screens.
+- **`/admin/registrations` and `/admin/registrations/[id]`:** counts and a searchable, filterable, paged table, and an administrator-only details page, all read with the administrator's own session. A draft is never shown or counted as a submission. The private video reference is reduced to a yes/no.
+- **`/admin/judges`:** name, e-mail, status (invited, active, inactive), assigned entries, scoring progress; Activate and Deactivate (deactivation needs a confirmation that the server also enforces); an invitation form that is disabled and says why until invitations are switched on.
+- **Judge invitation:** Supabase Auth sends the e-mail (`inviteUserByEmail`); the judge sets a password at `/staff/set-password` from a one-time link (the token is used only when the form is sent). The role and profile are recorded with the administrator's own session. An e-mail that already has an account is refused. Partial failures are undone where that is safe and otherwise reported exactly.
+- **Event settings** on the dashboard: read-only open or closed, opening and closing time in IST, timezone Asia/Kolkata. Nothing there can be edited.
+- **`/dev/registration-preview`:** the real registration form with empty, error and draft states and a stand-in action that runs the real validation and does nothing. It is a 404 whenever `NODE_ENV` is production.
+
+### 37.2 Security basis
+Administrator-only reads of personal data rely on existing row level security (an administrator reads all submissions; a judge and an anonymous caller read none) and on `requireStaff("admin")` first on every page. Every judge action calls `staffSession("admin")` before anything else. The secret key is built in one file (`lib/staff/invites.ts`), only after those checks. Judges cannot create judges: only an administrator can insert roles (policy), and the invitation path can only grant the judge role.
+
+### 37.3 Tests
+Real-database tests of the exact reads and writes as administrator, judge, parent and anonymous caller (`supabase/tests/admin-management.test.ts`); unit tests of the invitation flow (duplicate, rate limit, partial failure, no deletion of old or signed-in accounts), the password setup, the actions (a non-admin gets "notAllowed" with nothing built or called), filters; static guards; browser tests on the real pages at 360, 390, 768 and 1440 px (contrast, overflow, tap targets) and on the production build.
+
+### 37.4 Open items
+1. No judge invitation has been sent for real: SMTP of Supabase Auth, the invitation template, Site URL and a received test invitation are all still to do, then `RIO_STAFF_INVITES_ENABLED=yes`.
+2. Viewing personal data is not audit-logged: the audit log is written only by database triggers and a read has none. Logging reads needs a reviewed migration (not added).
+3. "Video verified" is derived from the entry status (an entry only becomes `uploaded` after the server verified the stored object); the `video_uploads` table is service-role only and is not read by these screens.
+4. The registration list reads up to 5,000 rows and filters them in the server; a very large event needs database-side paging.
+5. An administrator's own judge-or-admin role cannot be changed from the screen; an administrator role can only be granted outside the app.
