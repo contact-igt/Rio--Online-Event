@@ -32,7 +32,7 @@ export function WinnersList({ state }: { state: ResultsState }) {
         .filter((e) => state.winners.some((w) => w.eventId === e.number))
         .map((e) => (
           <section key={e.number} aria-labelledby={`results-${e.number}`}>
-            <h2 id={`results-${e.number}`} className="font-display text-2xl font-bold text-rio-navy">
+            <h2 id={`results-${e.number}`} className="font-heading text-2xl font-bold text-rio-navy">
               {e.nameTa} <span lang="en" className="block text-lg font-medium text-rio-slate">{e.nameEn}</span>
             </h2>
             <ol className="mt-4 grid gap-3 sm:grid-cols-2">

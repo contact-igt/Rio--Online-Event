@@ -32,7 +32,7 @@ const tag = "ml-2 inline-block rounded-full bg-rio-blush px-2 py-0.5 align-middl
 
 function SectionBar({ icon, m, tone = "mist" }: { icon: IconName; m: Msg; tone?: "mist" | "blush" }) {
   return (
-    <h3 className={`flex items-center gap-3 rounded-xl px-4 py-2.5 font-display text-lg font-bold ${tone === "mist" ? "bg-rio-mist" : "bg-rio-blush"}`}>
+    <h3 className={`flex items-center gap-3 rounded-xl px-4 py-2.5 font-heading text-lg font-bold ${tone === "mist" ? "bg-rio-mist" : "bg-rio-blush"}`}>
       <Icon name={icon} className="h-6 w-6 text-rio-rose" />
       <span>
         {m.ta} <span lang="en">/ {m.en}</span>

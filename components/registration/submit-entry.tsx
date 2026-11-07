@@ -91,7 +91,7 @@ export function SubmitEntry(d: SubmitDetails) {
       }}
       className="card-soft space-y-4 p-4 sm:p-5"
     >
-      <h3 id="submit-review" ref={heading} tabIndex={-1} className="font-display text-xl font-bold text-rio-navy outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rio-blue">
+      <h3 id="submit-review" ref={heading} tabIndex={-1} className="font-heading text-xl font-bold text-rio-navy outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rio-blue">
         {reg.submit.review.ta} <span lang="en" className="font-medium text-rio-slate">/ {reg.submit.review.en}</span>
       </h3>
 

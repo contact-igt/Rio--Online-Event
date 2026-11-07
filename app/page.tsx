@@ -80,13 +80,14 @@ export default async function HomePage() {
 
             <ul className="rise mt-6 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3" style={{ "--i": 4 } as React.CSSProperties}>
               {facts.map((f) => (
-                <li key={f.en} className="card flex min-w-0 flex-col items-start gap-0.5 px-3 py-3 sm:px-4">
+                <li key={f.en} className="card flex min-w-0 flex-col items-start gap-0.5 px-2.5 py-3 sm:px-4">
                   <Icon name={f.icon} className="h-6 w-6 text-rio-rose" />
-                  <span className="text-sm font-semibold leading-tight text-rio-navy [overflow-wrap:anywhere]">{f.ta}</span>
+                  {/* On a phone the Tamil label may take two lines in a narrow card; reserving both keeps the English label and the value level across the three cards. */}
+                  <span className="flex min-h-[2.75em] items-end text-sm font-semibold leading-snug text-rio-navy [overflow-wrap:anywhere] sm:min-h-0">{f.ta}</span>
                   <span lang="en" className="text-xs leading-tight text-rio-slate">
                     {f.en}
                   </span>
-                  <span lang="en" className="font-display text-lg sm:text-xl font-bold leading-tight text-rio-navy tabular-nums">
+                  <span lang="en" className="mt-auto whitespace-nowrap pt-1 font-display text-base font-bold leading-tight text-rio-navy tabular-nums sm:text-xl">
                     {f.value}
                   </span>
                 </li>
