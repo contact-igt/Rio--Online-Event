@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { navLinks, staffLinks } from "@/components/nav-links";
+import { navLinks } from "@/components/nav-links";
 
 // Navy footer. The logo file has dark lettering, so it sits on a white chip rather than being recoloured.
 export function SiteFooter() {
@@ -24,11 +24,6 @@ export function SiteFooter() {
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6">
           {navLinks.map((l) => (
             <Link key={l.href} href={l.href} className="inline-flex min-h-11 items-center font-semibold underline-offset-4 hover:underline">
-              <span lang="en">{l.en}</span>
-            </Link>
-          ))}
-          {staffLinks.map((l) => (
-            <Link key={l.href} href={l.href} className="inline-flex min-h-11 items-center text-white/80 underline-offset-4 hover:underline">
               <span lang="en">{l.en}</span>
             </Link>
           ))}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CompetitionCard } from "@/components/competition-card";
-import { Icon, eventIcon } from "@/components/ui/icon";
+import { HeroVisual } from "@/components/hero-visual";
+import { Icon } from "@/components/ui/icon";
 import { InfoStrip } from "@/components/ui/info-strip";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Steps, type Step } from "@/components/ui/steps";
@@ -42,24 +43,38 @@ export default async function HomePage() {
   return (
     <>
       <section aria-labelledby="hero-title" className="wash relative overflow-hidden">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-24 top-10 hidden size-[34rem] rounded-full bg-rio-pink/10 lg:block" />
-        <div className="relative mx-auto grid w-full max-w-[1200px] gap-10 px-4 pb-[clamp(2.5rem,6vw,4.5rem)] pt-[clamp(1.75rem,5vw,3.5rem)] sm:px-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-12 lg:px-8">
-          <div>
+        <div className="relative mx-auto grid w-full max-w-[1200px] gap-8 px-4 pb-8 pt-[clamp(1.75rem,5vw,3.25rem)] sm:px-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-end lg:gap-10 lg:pb-0 lg:px-8">
+          <div className="lg:pb-12">
             <p lang="en" className="eyebrow rise" style={{ "--i": 0 } as React.CSSProperties}>
               <span aria-hidden="true" className="h-px w-8 bg-current" />
               Children&apos;s Day Celebration 2026
             </p>
-            <h1 id="hero-title" className="rise mt-3 text-[clamp(3.25rem,13vw,6rem)] font-extrabold leading-[1.25]" style={{ "--i": 1 } as React.CSSProperties}>
+            <h1 id="hero-title" className="rise mt-3 text-[clamp(2.75rem,10.5vw,5.5rem)] font-extrabold leading-[1.22]" style={{ "--i": 1 } as React.CSSProperties}>
               <span className="block">மழலைத்</span>{" "}
-              <span className="block text-rio-rose">தமிழே!</span>
+              <span className="inline-flex items-center gap-2 text-rio-rose">
+                <span>தமிழே!</span>
+                <svg
+                  aria-hidden="true"
+                  className="inline-block h-8 w-8 text-rio-rose sm:h-10 sm:w-10"
+                  viewBox="0 0 32 32"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                >
+                  <line x1="8" y1="16" x2="2" y2="16" />
+                  <line x1="10" y1="10" x2="4" y2="4" />
+                  <line x1="16" y1="8" x2="16" y2="2" />
+                </svg>
+              </span>
             </h1>
-            <p className="rise font-display text-[clamp(1.35rem,4.5vw,2rem)] font-bold text-rio-navy" style={{ "--i": 2 } as React.CSSProperties}>
+            <p className="rise font-display text-[clamp(1.35rem,4.2vw,2rem)] font-bold text-rio-navy mt-1" style={{ "--i": 2 } as React.CSSProperties}>
               என் மொழி… என் மகிழ்ச்சி!
             </p>
-            <p className="rise mt-4 max-w-[48ch] text-lg" style={{ "--i": 3 } as React.CSSProperties}>
+            <p className="rise mt-4 max-w-[50ch] text-[clamp(1.02rem,2.2vw,1.15rem)] leading-[1.7] text-rio-ink" style={{ "--i": 3 } as React.CSSProperties}>
               குழந்தைகள் தினத்தைக் கொண்டாட, உங்கள் குழந்தையின் திறமையை வெளிப்படுத்த ஒரு சிறப்பு வாய்ப்பு!
             </p>
-            <p lang="en" className="rise max-w-[48ch] text-rio-slate" style={{ "--i": 3 } as React.CSSProperties}>
+            <p lang="en" className="rise mt-1.5 max-w-[50ch] text-[clamp(0.92rem,1.8vw,1.02rem)] leading-relaxed text-rio-slate" style={{ "--i": 3 } as React.CSSProperties}>
               A special Children&apos;s Day celebration to showcase your child&apos;s talent, creativity and love for Tamil.
             </p>
 
@@ -71,7 +86,7 @@ export default async function HomePage() {
                   <span lang="en" className="text-xs leading-tight text-rio-slate">
                     {f.en}
                   </span>
-                  <span lang="en" className="font-display text-lg font-bold leading-tight text-rio-navy tabular-nums">
+                  <span lang="en" className="font-display text-lg sm:text-xl font-bold leading-tight text-rio-navy tabular-nums">
                     {f.value}
                   </span>
                 </li>
@@ -105,31 +120,9 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <aside aria-label="Competitions at a glance" className="card-soft hidden p-6 lg:block">
-            <p className="font-display text-xl font-bold text-rio-navy">
-              ஆறு போட்டிகள் <span lang="en">· Six competitions</span>
-            </p>
-            <ul className="mt-3">
-              {events.map((e) => (
-                <li key={e.slug} className="border-t border-rio-navy/10 first:border-0">
-                  <Link href={`/events/${e.slug}`} className="flex min-h-14 items-center gap-3 rounded-xl py-2 hover:bg-white/70">
-                    <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-rio-rose">
-                      <Icon name={eventIcon[e.slug] ?? "star"} className="h-6 w-6" />
-                    </span>
-                    <span className="min-w-0 flex-1 leading-snug">
-                      <span className="block font-bold text-rio-navy">{e.nameTa}</span>
-                      <span lang="en" className="block text-sm text-rio-slate">
-                        {e.nameEn}
-                      </span>
-                    </span>
-                    <span lang="en" className="chip shrink-0 tabular-nums">
-                      {e.minAge}–{e.maxAge}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </aside>
+          <div className="rise flex items-end justify-center self-end lg:justify-end" style={{ "--i": 4 } as React.CSSProperties}>
+            <HeroVisual size="hero" />
+          </div>
         </div>
       </section>
 

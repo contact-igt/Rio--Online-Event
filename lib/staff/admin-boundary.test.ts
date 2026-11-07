@@ -100,6 +100,9 @@ describe("staff access and password setup", () => {
   it("the public Staff Access links reuse /staff/login; the role in the address only changes the heading", () => {
     expect(code("components/nav-links.ts")).toContain("/staff/login?role=admin");
     expect(code("components/nav-links.ts")).toContain("/staff/login?role=judge");
+    const users = files.filter((f) => !isTest(f.path) && f.text.includes("staffLinks")).map((f) => f.path).sort();
+    expect(users).toEqual(["components/nav-links.ts", "components/staff-menu.tsx"]); // one icon menu is the only public way in: not the footer, not the phone menu
+    expect(code("components/staff-menu.tsx")).toContain('aria-label="Staff login"');
     const page = code("app/staff/login/page.tsx");
     expect([...page.matchAll(/\bwanted\b/g)].length).toBe(3); // destructured, and the two tests choosing the heading: never a redirect or a role check
     expect(page).not.toMatch(/redirect\([^)]*wanted/);

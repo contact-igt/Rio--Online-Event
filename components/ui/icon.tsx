@@ -26,6 +26,8 @@ const paths = {
   clipboard: "M9 4h6v3H9zM7 5.5H5v15h14v-15h-2M9 12h6M9 16h4",
   user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6",
   play: "M8 5v14l11-7z",
+  // A person with a small cog: staff sign-in.
+  userCog: "M9.5 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM2.5 20c0-3.4 3-5.8 7-5.8.7 0 1.4.1 2 .2M18 20a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6ZM18 12.8v2.6M18 20v2.6M13.4 17.7h2.3M20.3 17.7h2.3",
 } as const;
 
 export type IconName = keyof typeof paths;

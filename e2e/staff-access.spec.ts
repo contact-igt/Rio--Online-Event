@@ -5,20 +5,101 @@ import { audit } from "./helpers/audit";
 // password page of an invitation, and the development preview being absent in production. No account exists in these tests and nothing
 // is created, sent or changed.
 
-test.describe("Staff Access in the public navigation", () => {
-  test("on a wide screen a Staff Access menu lists Admin Login and Judge Login, both on the existing sign-in page", async ({ page }) => {
+test.describe("Staff login icon in the public header", () => {
+  test("on a wide screen a small icon button (no Staff Access label) opens a menu with Admin Login and Judge Login", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
-    const button = page.getByRole("button", { name: /Staff Access/ });
+    await expect(page.getByText("Staff Access")).toHaveCount(0);
+    const button = page.getByRole("button", { name: "Staff login" });
     await expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(await button.innerText()).toBe(""); // an icon only, no visible label
+    const box = (await button.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(Math.abs(box.width - box.height)).toBeLessThan(1); // circular
+    const content = (await page.locator("header > div").boundingBox())!; // the 1200px column with 32px side padding
+    expect(Math.abs(box.x + box.width - (content.x + content.width - 32))).toBeLessThan(2); // at the far right of the header content
     await button.click();
     await expect(button).toHaveAttribute("aria-expanded", "true");
-    const links = page.locator("#staff-access").getByRole("link");
-    await expect(links).toHaveCount(2);
-    await expect(page.locator("#staff-access").getByRole("link", { name: /Admin Login/ })).toHaveAttribute("href", "/staff/login?role=admin");
-    await expect(page.locator("#staff-access").getByRole("link", { name: /Judge Login/ })).toHaveAttribute("href", "/staff/login?role=judge");
+    const menu = page.getByRole("menu", { name: "Staff login" });
+    await expect(menu.getByRole("menuitem")).toHaveCount(2);
+    await expect(menu.getByRole("menuitem", { name: /Admin Login/ })).toHaveAttribute("href", "/staff/login?role=admin");
+    await expect(menu.getByRole("menuitem", { name: /Judge Login/ })).toHaveAttribute("href", "/staff/login?role=judge");
+    const m = (await menu.boundingBox())!;
+    expect(Math.abs(m.x + m.width - (box.x + box.width))).toBeLessThan(2); // aligned to the right edge of the button
+    expect(await menu.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 255, 255)");
+  });
+
+  test("the icon does not make the header taller: it is no taller than the other header controls", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    const icon = (await page.getByRole("button", { name: "Staff login" }).boundingBox())!.height;
+    const link = (await page.getByRole("navigation", { name: "Main" }).getByRole("link").first().boundingBox())!.height;
+    expect(icon).toBeLessThanOrEqual(link);
+    expect((await page.locator("header").boundingBox())!.height).toBeLessThan(70); // 44px controls plus padding
+    await page.setViewportSize({ width: 360, height: 780 });
+    const menu = (await page.getByRole("button", { name: /Menu/ }).boundingBox())!.height;
+    expect(icon).toBeLessThanOrEqual(menu); // the two-line Menu button already sets the phone header height
+  });
+
+  test("closes on Escape (focus returns to the button), on an outside click and on a second click", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    const button = page.getByRole("button", { name: "Staff login" });
+    const menu = page.getByRole("menu", { name: "Staff login" });
+    await button.click();
+    await expect(menu).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(menu).toHaveCount(0);
+    await expect(button).toBeFocused();
+    await button.click();
+    await page.locator("main").click({ position: { x: 5, y: 5 } });
+    await expect(menu).toHaveCount(0);
+    await button.click();
+    await button.click();
+    await expect(menu).toHaveCount(0);
+  });
+
+  test("keyboard: Arrow Down opens it on the first item, arrows/Home/End move, Tab leaves and closes, Enter follows the link", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    const button = page.getByRole("button", { name: "Staff login" });
+    const menu = page.getByRole("menu", { name: "Staff login" });
+    await button.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(menu.getByRole("menuitem", { name: /Admin Login/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(menu.getByRole("menuitem", { name: /Judge Login/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown"); // wraps
+    await expect(menu.getByRole("menuitem", { name: /Admin Login/ })).toBeFocused();
+    await page.keyboard.press("ArrowUp"); // wraps back
+    await expect(menu.getByRole("menuitem", { name: /Judge Login/ })).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(menu.getByRole("menuitem", { name: /Admin Login/ })).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(menu.getByRole("menuitem", { name: /Judge Login/ })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(menu).toHaveCount(0);
+    await button.focus();
+    await page.keyboard.press("ArrowUp"); // opens on the last item
+    await expect(menu.getByRole("menuitem", { name: /Judge Login/ })).toBeFocused();
+    await page.keyboard.press("Home");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/staff\/login\?role=admin$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Admin sign-in");
+  });
+
+  test("both menu items reach the existing sign-in, which still redirects a signed-out visitor away from staff areas", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Staff login" }).click();
+    await page.getByRole("menuitem", { name: /Judge Login/ }).click();
+    await expect(page).toHaveURL(/\/staff\/login\?role=judge$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Judge sign-in");
+    for (const path of ["/admin", "/judge"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/staff\/login$/);
+    }
   });
 
   test("the main navigation is unchanged by it: still four links", async ({ page }) => {
@@ -27,24 +108,31 @@ test.describe("Staff Access in the public navigation", () => {
     await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveCount(4);
   });
 
-  test("on a phone the Menu has a separate Staff Access section with both links, and a choice closes the menu", async ({ page }) => {
+  test("on a phone the same icon sits right of Menu, the Menu has no Staff Access section, and a choice goes to sign-in", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await page.goto("/");
-    await page.getByRole("button", { name: /Menu/ }).click();
-    const staff = page.locator("#mobile-staff");
-    await expect(staff).toContainText("Staff Access");
-    await expect(staff.getByRole("link")).toHaveCount(2);
+    const menuButton = page.getByRole("button", { name: /Menu/ });
+    const icon = page.getByRole("button", { name: "Staff login" });
+    expect((await icon.boundingBox())!.x).toBeGreaterThan((await menuButton.boundingBox())!.x);
+    await menuButton.click();
     await expect(page.locator("#mobile-nav").getByRole("link")).toHaveCount(4);
-    await staff.getByRole("link", { name: /Judge Login/ }).click();
+    await expect(page.locator("#mobile-staff")).toHaveCount(0);
+    await expect(page.getByText("Staff Access")).toHaveCount(0);
+    await icon.click(); // opening the staff menu closes the phone menu
+    await expect(menuButton).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("menuitem")).toHaveCount(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.getByRole("menuitem", { name: /Judge Login/ }).click();
     await expect(page).toHaveURL(/\/staff\/login\?role=judge$/);
-    await expect(page.getByRole("button", { name: /Menu/ })).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("the footer also links to both logins", async ({ page }) => {
+  test("login links exist only once on a page: none in the footer, no duplicates", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
-    const footer = page.locator("footer");
-    await expect(footer.getByRole("link", { name: "Admin Login" })).toHaveAttribute("href", "/staff/login?role=admin");
-    await expect(footer.getByRole("link", { name: "Judge Login" })).toHaveAttribute("href", "/staff/login?role=judge");
+    await expect(page.locator("footer").getByRole("link", { name: /Admin Login|Judge Login/ })).toHaveCount(0);
+    await expect(page.locator('a[href^="/staff/login"]')).toHaveCount(0); // not rendered until the menu is opened
+    await page.getByRole("button", { name: "Staff login" }).click();
+    await expect(page.locator('a[href^="/staff/login"]')).toHaveCount(2);
   });
 });
 
@@ -160,10 +248,19 @@ for (const vp of [
       });
     }
 
-    test("the header with the Staff Access menu open has no overflow and enough contrast", async ({ page }) => {
+    test("the header with the staff login menu open has no overflow and enough contrast", async ({ page }) => {
       await page.goto("/");
-      if (vp.w >= 1024) await page.getByRole("button", { name: /Staff Access/ }).click();
-      else await page.getByRole("button", { name: /Menu/ }).click();
+      await page.getByRole("button", { name: "Staff login" }).click();
+      const a = await audit(page, "header");
+      expect(a.overflow).toBe(false);
+      expect(a.lowContrast).toEqual([]);
+      expect(a.smallTargets).toEqual([]);
+    });
+
+    test("the header with the phone Menu open has no overflow and enough contrast", async ({ page }) => {
+      test.skip(vp.w >= 1024, "the phone Menu exists below 1024px");
+      await page.goto("/");
+      await page.getByRole("button", { name: /Menu/ }).click();
       const a = await audit(page, "header");
       expect(a.overflow).toBe(false);
       expect(a.lowContrast).toEqual([]);
