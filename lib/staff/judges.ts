@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // role. No password, token or hash is ever read here.
 
 export type JudgeStatus = "invited" | "active" | "inactive";
-export type AuthInfo = { email: string | null; lastSignInAt: string | null };
+export type AuthInfo = { email: string | null; lastSignInAt: string | null; mustChangePassword?: boolean };
 export type AuthLookup = (ids: string[]) => Promise<Map<string, AuthInfo> | null>;
 
 export type JudgeRow = {
@@ -14,6 +14,8 @@ export type JudgeRow = {
   name: string;
   email: string | null;
   status: JudgeStatus;
+  /** The judge still has the password an administrator set and must choose their own at next sign-in. */
+  mustChangePassword: boolean;
   assigned: number;
   drafts: number;
   final: number;
@@ -54,6 +56,7 @@ export async function loadJudges(supabase: SupabaseClient, lookup: AuthLookup | 
       email: auth?.email ?? null,
       // without Auth data a judge cannot be told apart as invited or active, so an active profile is shown as active
       status: judgeStatus({ active: p.active, lastSignInAt: info ? (auth?.lastSignInAt ?? null) : "unknown" }),
+      mustChangePassword: auth?.mustChangePassword === true,
       assigned,
       drafts: mine.length - final,
       final,

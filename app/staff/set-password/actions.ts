@@ -3,9 +3,10 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createLimiter } from "@/lib/auth/rate-limit";
-import { staffRole } from "@/lib/staff/auth";
+import { mustChangePassword, staffRole } from "@/lib/staff/auth";
 import { staffHome } from "@/lib/staff/paths";
 import { setStaffPassword, type SetPasswordCode } from "@/lib/staff/password-setup";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 // Sets a staff member's password from the invitation link (or, in session mode, for the staff member already signed in). Nothing here
@@ -35,9 +36,20 @@ export async function setPasswordAction(_prev: SetPasswordState, formData: FormD
           return data.user ? { userId: data.user.id } : null;
         },
         async setPassword(password) {
+          const { data: before } = await supabase.auth.getUser();
           const { error } = await supabase.auth.updateUser({ password });
-          if (!error) return "ok";
-          return error.code === "weak_password" || error.code === "same_password" ? "weak" : "unavailable";
+          if (error) return error.code === "weak_password" || error.code === "same_password" ? "weak" : "unavailable";
+          // A password set by an administrator (new judge or reset) is now replaced by the judge's own: lift the mark. Only the secret key can write
+          // app_metadata. If this fails the judge stays blocked and can simply choose another password.
+          if (before.user && mustChangePassword(before.user)) {
+            try {
+              const cleared = await createAdminClient().auth.admin.updateUserById(before.user.id, { app_metadata: { must_change_password: false } });
+              if (cleared.error) return "unavailable";
+            } catch {
+              return "unavailable";
+            }
+          }
+          return "ok";
         },
         roleOf: (userId) => staffRole(supabase, userId),
         async signOut() {

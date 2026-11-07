@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SetPasswordForm } from "@/components/staff/set-password-form";
-import { staffRole } from "@/lib/staff/auth";
+import { mustChangePassword, staffRole } from "@/lib/staff/auth";
 import { staffLoginPath } from "@/lib/staff/paths";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,11 +19,13 @@ export default async function SetPasswordPage({ searchParams }: { searchParams: 
   const type = q.type === "invite" || q.type === "recovery" ? q.type : null;
 
   let allowed = tokenHash !== null && type !== null;
+  let forced = false;
   if (!allowed) {
     try {
       const supabase = await createClient();
       const { data } = await supabase.auth.getUser();
       allowed = data.user ? (await staffRole(supabase, data.user.id)) !== null : false;
+      forced = allowed && data.user !== null && mustChangePassword(data.user);
     } catch {
       allowed = false;
     }
@@ -35,6 +37,11 @@ export default async function SetPasswordPage({ searchParams }: { searchParams: 
         <h1 className="text-[clamp(1.75rem,6vw,2.5rem)] font-extrabold">
           Set your password <span lang="ta" className="block text-[0.6em] font-bold text-rio-slate">கடவுச்சொல்லை அமைக்கவும்</span>
         </h1>
+        {forced && (
+          <p role="status" className="mt-4 rounded-2xl bg-rio-mist p-4 font-semibold text-rio-navy">
+            An administrator set a temporary password for you. Choose your own password to continue. You cannot use the staff area until you do.
+          </p>
+        )}
         <div className="card mt-6 p-5 sm:p-6">
           {allowed ? (
             <SetPasswordForm tokenHash={tokenHash} type={type} />

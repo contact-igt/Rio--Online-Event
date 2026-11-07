@@ -1,15 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { inviteJudge } from "@/app/admin/judges/actions";
+import { provisionJudge } from "@/app/admin/judges/actions";
+import { CredentialsPanel, HiddenNote } from "@/components/admin/credentials-panel";
 import { Icon } from "@/components/ui/icon";
 import { staff } from "@/lib/staff/messages";
 
-// The invitation form. While invitations are switched off the form is disabled and says why; it never pretends an e-mail was sent. A
-// success message appears only when the server reports that Supabase Auth accepted the invitation.
+// The Add judge form. While adding is switched off the form is disabled and says why; success appears only when the server reports that the
+// account is complete, and then the generated password is shown once (see CredentialsPanel). Nothing is e-mailed.
 
 const M = staff.judges;
-type State = { kind: "idle" } | { kind: "sending" } | { kind: "done"; email: string } | { kind: "failed"; message: string };
+type State =
+  | { kind: "idle" }
+  | { kind: "sending" }
+  | { kind: "done"; email: string; password: string }
+  | { kind: "hidden" }
+  | { kind: "failed"; message: string };
 
 function Warning({ children }: { children: React.ReactNode }) {
   return (
@@ -20,24 +26,28 @@ function Warning({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function InviteJudgeForm({ enabled, secretKey }: { enabled: boolean; secretKey: "ok" | "missing" | "badFormat" }) {
+export function ProvisionJudgeForm({ enabled, secretKey }: { enabled: boolean; secretKey: "ok" | "missing" | "badFormat" }) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const ready = enabled && secretKey === "ok";
   const busy = state.kind === "sending";
 
   async function submit(form: HTMLFormElement) {
     const data = new FormData(form);
-    const email = String(data.get("email") ?? "");
     setState({ kind: "sending" });
-    const result = await inviteJudge({ email, displayName: String(data.get("displayName") ?? "") }).catch(() => null);
+    const result = await provisionJudge({
+      email: String(data.get("email") ?? ""),
+      displayName: String(data.get("displayName") ?? ""),
+      emailVerified: data.get("verified") === "on",
+    }).catch(() => null);
     if (!result) return setState({ kind: "failed", message: M.errors.unavailable });
-    if (!result.ok) return setState({ kind: "failed", message: M.errors[result.code] });
+    if (!result.ok) return setState({ kind: "failed", message: M.provErrors[result.code] });
     form.reset();
-    setState({ kind: "done", email });
+    setState({ kind: "done", email: result.email, password: result.password });
   }
 
   return (
     <div className="space-y-4">
+      <p className="max-w-3xl text-rio-navy">{M.addIntro}</p>
       {!enabled && <Warning>{M.off}</Warning>}
       {enabled && secretKey !== "ok" && <Warning>{M.noKey}</Warning>}
       <form
@@ -60,10 +70,14 @@ export function InviteJudgeForm({ enabled, secretKey }: { enabled: boolean; secr
           </label>
           <input id="judge-email" name="email" type="email" inputMode="email" autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={254} required disabled={!ready} className="field mt-2" />
         </div>
+        <label className="flex min-h-11 items-start gap-3 font-semibold text-rio-navy sm:col-span-2">
+          <input type="checkbox" name="verified" disabled={!ready} className="mt-1 h-6 w-6 shrink-0 accent-rio-rose" />
+          <span>{M.verified}</span>
+        </label>
         <div className="sm:col-span-2">
           <button type="submit" disabled={!ready || busy} aria-busy={busy} className="btn btn-primary w-full sm:w-auto">
-            <span>{(busy ? M.sending : M.send).en}</span>
-            <span lang="ta" className="font-medium">{(busy ? M.sending : M.send).ta}</span>
+            <span>{(busy ? M.adding : M.addButton).en}</span>
+            <span lang="ta" className="font-medium">{(busy ? M.adding : M.addButton).ta}</span>
           </button>
         </div>
       </form>
@@ -73,10 +87,14 @@ export function InviteJudgeForm({ enabled, secretKey }: { enabled: boolean; secr
         </p>
       )}
       {state.kind === "done" && (
-        <p role="status" className="font-semibold text-rio-ok">
-          {M.sent.en} for <span className="break-all">{state.email}</span>. <span className="font-medium text-rio-slate">{M.sentNote}</span>
-        </p>
+        <div className="space-y-3">
+          <p role="status" className="font-semibold text-rio-ok">
+            {M.added.en}: <span className="break-all">{state.email}</span>
+          </p>
+          <CredentialsPanel email={state.email} password={state.password} onDone={() => setState({ kind: "hidden" })} />
+        </div>
       )}
+      {state.kind === "hidden" && <HiddenNote />}
     </div>
   );
 }

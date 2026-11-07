@@ -1,14 +1,9 @@
-// Stands in for lib/staff/invites.ts in the offline admin tests: the readiness and the e-mail lookup come from the window. No Auth call exists.
+// Stands in for lib/staff/invites.ts in the offline admin tests: the e-mail lookup comes from the window. No Auth call exists.
 declare global {
   interface Window {
     __path?: string;
-    __invite?: { enabled: boolean; secretKey: "ok" | "missing" | "badFormat"; ready: boolean };
-    __authInfo?: Record<string, { email: string | null; lastSignInAt: string | null }> | null;
+    __authInfo?: Record<string, { email: string | null; lastSignInAt: string | null; mustChangePassword?: boolean }> | null;
   }
-}
-
-export function inviteReadiness() {
-  return window.__invite ?? { enabled: false, secretKey: "missing" as const, ready: false };
 }
 
 export function createAuthLookup() {

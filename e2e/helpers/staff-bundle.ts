@@ -9,6 +9,7 @@ export const staffBundle = () =>
   bundleFixture("e2e/fixtures/staff-pages-entry.tsx", {
     "@/lib/staff/auth": "e2e/fixtures/fake-staff-auth.ts",
     "@/lib/staff/invites": "e2e/fixtures/fake-staff-invites.ts",
+    "@/lib/staff/provisioning": "e2e/fixtures/fake-staff-provisioning.ts",
     "@/lib/judging/server": "e2e/fixtures/fake-judging-server.ts",
     "@/app/judge/actions": "e2e/fixtures/fake-judge-actions.ts",
     "@/app/admin/judges/actions": "e2e/fixtures/fake-admin-actions.ts",
@@ -24,7 +25,7 @@ export function builtCss(): string {
   }
 }
 
-export type OpenOptions = { data?: Record<string, unknown[]>; path?: string; invite?: unknown; authInfo?: unknown; adminScript?: unknown };
+export type OpenOptions = { data?: Record<string, unknown[]>; path?: string; provisioning?: unknown; authInfo?: unknown; adminScript?: unknown };
 
 export async function openStaff(page: Page, bundle: string, css: string, hash: string, o: OpenOptions = {}) {
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><body style="margin:0;background:#fff8fb"><main id="root" class="wash"></main></body>');
@@ -35,7 +36,7 @@ export async function openStaff(page: Page, bundle: string, css: string, hash: s
       const w = window as unknown as Record<string, unknown>;
       w.__staffData = o.data ?? {};
       w.__path = o.path;
-      w.__invite = o.invite;
+      w.__prov = o.provisioning;
       w.__authInfo = o.authInfo ?? null;
       w.__adminScript = o.adminScript;
     },

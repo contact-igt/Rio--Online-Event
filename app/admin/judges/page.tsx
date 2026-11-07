@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { InviteJudgeForm } from "@/components/admin/invite-judge-form";
 import { JudgeActiveButton } from "@/components/admin/judge-active-button";
+import { JudgeResetButton } from "@/components/admin/judge-reset-button";
+import { ProvisionJudgeForm } from "@/components/admin/provision-judge-form";
 import { Bilingual } from "@/components/auth/bilingual";
 import { Icon } from "@/components/ui/icon";
 import { loadJudges, type JudgeRow, type JudgeStatus } from "@/lib/staff/judges";
-import { createAuthLookup, inviteReadiness } from "@/lib/staff/invites";
+import { createAuthLookup } from "@/lib/staff/invites";
+import { provisioningReadiness } from "@/lib/staff/provisioning";
 import { requireStaff } from "@/lib/staff/auth";
 import { staff } from "@/lib/staff/messages";
 
@@ -19,7 +21,7 @@ const label: Record<JudgeStatus, string> = { invited: M.statusInvited, active: M
 
 export default async function AdminJudgesPage() {
   const { supabase } = await requireStaff("admin"); // not an administrator: 404 (or the sign-in page when signed out)
-  const readiness = inviteReadiness();
+  const readiness = provisioningReadiness();
   // E-mail addresses live in Supabase Auth and need the secret key; it is used here only to label rows, after the role check above.
   let lookup: ReturnType<typeof createAuthLookup> | null = null;
   if (readiness.secretKey === "ok") {
@@ -43,11 +45,11 @@ export default async function AdminJudgesPage() {
 
       <div className="card mt-6 p-4 sm:p-6">
         <h2 className="flex items-center gap-3 font-display text-2xl font-bold text-rio-navy">
-          <Icon name="mail" className="h-7 w-7 text-rio-rose" />
-          <Bilingual m={M.invite} />
+          <Icon name="userCog" className="h-7 w-7 text-rio-rose" />
+          <Bilingual m={M.add} />
         </h2>
         <div className="mt-4">
-          <InviteJudgeForm enabled={readiness.enabled} secretKey={readiness.secretKey} />
+          <ProvisionJudgeForm enabled={readiness.enabled} secretKey={readiness.secretKey} />
         </div>
       </div>
 
@@ -84,7 +86,7 @@ export default async function AdminJudgesPage() {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className={`${td} text-rio-slate`}>
-                    No judges exist yet. Send an invitation above once invitations are switched on.
+                    No judges exist yet. Add the first judge above once adding judges is switched on.
                   </td>
                 </tr>
               )}
@@ -94,6 +96,7 @@ export default async function AdminJudgesPage() {
                   <td className={`${td} break-all`}>{j.email ?? "–"}</td>
                   <td className={td}>
                     <span className={`inline-block rounded-full px-3 py-0.5 text-sm font-bold ${tone[j.status]}`}>{label[j.status]}</span>
+                    {j.mustChangePassword && <span className="mt-1 block text-sm text-rio-slate">{M.mustChange}</span>}
                   </td>
                   <td className={td}>{j.assigned}</td>
                   <td className={td}>
@@ -106,7 +109,10 @@ export default async function AdminJudgesPage() {
                     </span>
                   </td>
                   <td className={td}>
-                    <JudgeActiveButton judgeId={j.id} name={j.name} active={j.status !== "inactive"} />
+                    <div className="flex flex-col items-start gap-2">
+                      <JudgeActiveButton judgeId={j.id} name={j.name} active={j.status !== "inactive"} />
+                      <JudgeResetButton judgeId={j.id} name={j.name} email={j.email} ready={readiness.ready} />
+                    </div>
                   </td>
                 </tr>
               ))}

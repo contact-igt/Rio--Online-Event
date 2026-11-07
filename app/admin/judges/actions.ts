@@ -5,6 +5,15 @@ import { z } from "zod";
 import { createLimiter } from "@/lib/auth/rate-limit";
 import { staffSession } from "@/lib/staff/auth";
 import { createInviteDeps, inviteJudgeFlow, inviteReadiness, type InviteResult } from "@/lib/staff/invites";
+import {
+  createProvisionDeps,
+  createResetDeps,
+  provisionJudgeFlow,
+  provisioningReadiness,
+  resetJudgePasswordFlow,
+  type ProvisionResult,
+  type ResetResult,
+} from "@/lib/staff/provisioning";
 
 // Administrator-only judge management. Every action verifies the administrator's own verified session FIRST (before reading any setting or
 // touching any input), so a parent, a judge or a signed-out caller always gets "notAllowed" and nothing else happens. Judges cannot call
@@ -25,6 +34,42 @@ export async function inviteJudge(input: { email: string; displayName: string })
     return result;
   } catch {
     return { ok: false, code: "inviteFailed" };
+  }
+}
+
+// Manual judge accounts (no e-mail is sent). Behind its OWN switch, RIO_STAFF_PROVISIONING_ENABLED, never the invitations one. The password is
+// generated on the server and returned once to the administrator who asked; it is not stored, logged or e-mailed. Nothing here runs on page render.
+const byProvision = createLimiter(10, 10 * 60_000);
+
+export async function provisionJudge(input: { email: string; displayName: string; emailVerified: boolean }): Promise<ProvisionResult> {
+  const session = await staffSession("admin");
+  if (!session) return { ok: false, code: "notAllowed" };
+  if (!byProvision.hit(session.user.id).allowed) return { ok: false, code: "tooMany" };
+  const readiness = provisioningReadiness();
+  if (!readiness.enabled) return { ok: false, code: "disabled" };
+  if (readiness.secretKey !== "ok") return { ok: false, code: "notConfigured" };
+  try {
+    const result = await provisionJudgeFlow(createProvisionDeps(session.supabase), { email: input?.email, displayName: input?.displayName, emailVerified: input?.emailVerified });
+    if (result.ok) revalidatePath("/admin/judges");
+    return result;
+  } catch {
+    return { ok: false, code: "createFailed" };
+  }
+}
+
+export async function resetJudgePassword(input: { judgeId: string }): Promise<ResetResult> {
+  const session = await staffSession("admin");
+  if (!session) return { ok: false, code: "notAllowed" };
+  if (!byProvision.hit(session.user.id).allowed) return { ok: false, code: "tooMany" };
+  const readiness = provisioningReadiness();
+  if (!readiness.enabled) return { ok: false, code: "disabled" };
+  if (readiness.secretKey !== "ok") return { ok: false, code: "notConfigured" };
+  try {
+    const result = await resetJudgePasswordFlow(createResetDeps(session.supabase, session.user.id), { judgeId: input?.judgeId });
+    if (result.ok) revalidatePath("/admin/judges");
+    return result;
+  } catch {
+    return { ok: false, code: "unavailable" };
   }
 }
 

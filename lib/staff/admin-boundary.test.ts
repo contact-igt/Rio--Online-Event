@@ -26,15 +26,15 @@ const adminFiles = files.filter((f) => !isTest(f.path) && /^(app\/admin|componen
 const SECRET = /createAdminClient|supabase\/admin|SUPABASE_SECRET_KEY/;
 
 describe("the secret key", () => {
-  it("only lib/staff/invites.ts builds the secret-key client for staff management; admin pages, actions and components never touch it", () => {
+  it("only lib/staff/invites.ts and lib/staff/provisioning.ts build the secret-key client for staff management; admin pages, actions and components never touch it", () => {
     const staffUsers = files.filter((f) => !isTest(f.path) && /^lib\/staff\//.test(f.path) && SECRET.test(f.text));
-    expect(staffUsers.map((f) => f.path)).toEqual(["lib/staff/invites.ts"]);
+    expect(staffUsers.map((f) => f.path)).toEqual(["lib/staff/invites.ts", "lib/staff/provisioning.ts"]);
     for (const f of adminFiles) expect(f.text, f.path).not.toMatch(SECRET);
   });
 
-  it("no client component imports the invitation, judge-list or admin-loader modules", () => {
+  it("no client component imports the invitation, provisioning, judge-list or admin-loader modules", () => {
     for (const f of files.filter((x) => !isTest(x.path) && /^\s*["']use client["']/.test(x.text))) {
-      expect(f.text, f.path).not.toMatch(/lib\/staff\/invites|lib\/staff\/judges|lib\/admin\//);
+      expect(f.text, f.path).not.toMatch(/lib\/staff\/invites|lib\/staff\/provisioning|lib\/staff\/judges|lib\/admin\//);
     }
   });
 });
@@ -42,19 +42,50 @@ describe("the secret key", () => {
 describe("judge actions", () => {
   const actions = code("app/admin/judges/actions.ts");
 
-  it("exports exactly the two actions, as server actions that never log", () => {
+  it("exports exactly these four actions, as server actions that never log", () => {
     expect(actions).toMatch(/^"use server";/);
-    expect([...actions.matchAll(/^export async function (\w+)/gm)].map((m) => m[1])).toEqual(["inviteJudge", "setJudgeActive"]);
+    expect([...actions.matchAll(/^export async function (\w+)/gm)].map((m) => m[1])).toEqual(["inviteJudge", "provisionJudge", "resetJudgePassword", "setJudgeActive"]);
     expect(actions).not.toMatch(/console\./);
   });
 
   it("each verifies the administrator session FIRST, before reading a setting, building a dependency or parsing the input", () => {
-    for (const fn of ["inviteJudge", "setJudgeActive"]) {
+    for (const fn of ["inviteJudge", "provisionJudge", "resetJudgePassword", "setJudgeActive"]) {
       const body = actions.slice(actions.indexOf(`export async function ${fn}`));
       const firstAwait = body.indexOf("await ");
       expect(body.slice(firstAwait, firstAwait + 40), fn).toContain('staffSession("admin")');
     }
     expect(actions.indexOf("inviteReadiness()")).toBeLessThan(actions.indexOf("createInviteDeps("));
+    expect(actions.indexOf("provisioningReadiness()")).toBeLessThan(actions.indexOf("createProvisionDeps("));
+    expect(actions.lastIndexOf("provisioningReadiness()")).toBeLessThan(actions.indexOf("createResetDeps("));
+  });
+
+  it("manual provisioning has its own switch and never reads the invitations one", () => {
+    const provisioning = code("lib/staff/provisioning.ts");
+    expect(provisioning).toContain('RIO_STAFF_PROVISIONING_ENABLED === "yes"');
+    expect(provisioning).not.toContain("RIO_STAFF_INVITES_ENABLED");
+    expect(code("lib/staff/invites.ts")).not.toContain("RIO_STAFF_PROVISIONING_ENABLED");
+  });
+
+  it("the password is never logged, stored, put in a URL or e-mailed, and no account is created while a page renders", () => {
+    const touching = ["lib/staff/provisioning.ts", "app/admin/judges/actions.ts", "components/admin/credentials-panel.tsx", "components/admin/provision-judge-form.tsx", "components/admin/judge-reset-button.tsx"];
+    for (const p of touching) expect(code(p), p).not.toMatch(/console\.|localStorage|sessionStorage|indexedDB|document\.cookie|sendMail|nodemailer|resend/i);
+    expect(code("lib/staff/provisioning.ts")).not.toMatch(/Math\.random/); // the password comes from Web Crypto only
+    expect(code("app/admin/judges/page.tsx")).not.toMatch(/createUser|createProvisionDeps|createResetDeps|provisionJudgeFlow|resetJudgePasswordFlow|generatePassword/);
+    const written = [...code("lib/staff/provisioning.ts").matchAll(/session\.from\("(\w+)"\)/g)].map((m) => m[1]);
+    expect([...new Set(written)].sort()).toEqual(["judge_profiles", "user_roles"]); // the only tables it writes, with the administrator's session
+    const provisioning = code("lib/staff/provisioning.ts");
+    expect(provisioning).toContain('rpc("record_judge_password_reset"'); // a reset is audited by the labelled, service-role-only function...
+    expect(provisioning).not.toMatch(/update\(\{ display_name/); // ...and no longer by a profile update that would mislead the audit log
+    expect(code("components/admin/credentials-panel.tsx")).not.toMatch(/<input|name="password"|searchParams|router\.(push|replace)/);
+  });
+
+  it("a judge cannot clear the first-login mark: only app_metadata counts, and only the secret key writes it, after the judge's own password was accepted", () => {
+    expect(code("lib/staff/auth.ts")).toContain("user.app_metadata?.must_change_password === true");
+    expect(code("lib/staff/auth.ts")).not.toContain("user_metadata");
+    const lifts = files.filter((f) => !isTest(f.path) && /must_change_password: false/.test(f.text)).map((f) => f.path);
+    expect(lifts).toEqual(["app/staff/set-password/actions.ts"]);
+    const action = code("app/staff/set-password/actions.ts");
+    expect(action.indexOf("updateUser({ password })")).toBeLessThan(action.indexOf("must_change_password: false"));
   });
 
   it("deactivation requires an explicit confirmation on the server", () => {
@@ -112,7 +143,9 @@ describe("staff access and password setup", () => {
 
   it("the password setup never logs, returns or stores a password and never creates an account or grants a role", () => {
     for (const p of ["app/staff/set-password/actions.ts", "lib/staff/password-setup.ts", "components/staff/set-password-form.tsx"]) {
-      expect(code(p), p).not.toMatch(/console\.|localStorage|sessionStorage|createAdminClient|admin\.auth|\.insert\(|user_roles/);
+      expect(code(p), p).not.toMatch(/console\.|localStorage|sessionStorage|\.insert\(|user_roles/);
+      // the action uses the secret key for exactly one thing: lifting the first-login mark (see "a judge cannot clear the first-login mark")
+      if (p !== "app/staff/set-password/actions.ts") expect(code(p), p).not.toMatch(/createAdminClient|admin\.auth/);
     }
     expect(code("app/staff/set-password/page.tsx")).not.toContain("verifyOtp"); // opening the link must not use up the token
   });
@@ -128,6 +161,12 @@ describe("the development preview", () => {
 });
 
 describe("environment", () => {
+  it(".env.example documents the provisioning switch as off, separate from the invitation switch", () => {
+    const env = readFileSync(join(ROOT, ".env.example"), "utf8");
+    expect(env).toContain("# RIO_STAFF_PROVISIONING_ENABLED=no");
+    expect(env).not.toMatch(/NEXT_PUBLIC_[A-Z_]*PROVISION/);
+  });
+
   it(".env.example documents the invitation switch as off, with only the exact value yes explained", () => {
     const env = readFileSync(join(ROOT, ".env.example"), "utf8");
     expect(env).toContain("# RIO_STAFF_INVITES_ENABLED=no");

@@ -179,4 +179,79 @@ describe("judges: the screen's data and the actions' database rules", () => {
     // a parent's role cannot be granted by a judge, and an administrator role cannot be granted at all through the invitation path (judge only)
     expect(await q(db(), "superuser", "select role from public.user_roles where user_id = $1", [ids.stranger])).toEqual([{ role: "judge" }]);
   });
+  // ---- manual judge accounts (lib/staff/provisioning.ts): the database side of the same steps, as the administrator's own session ----
+  const NEW = ids.stranger;
+  const roleSql = "insert into public.user_roles (user_id, role) values ($1, 'judge')";
+  const profileSql = "insert into public.judge_profiles (user_id, display_name, active) values ($1, 'Manual Judge', false)";
+
+  async function provisionManually() {
+    await q(db(), "admin", roleSql, [NEW]);
+    await q(db(), "admin", profileSql, [NEW]);
+  }
+
+  it("manual provisioning: the profile is inserted OFF, so the new judge can do nothing until the very last step switches it on", async () => {
+    const s = await assignedJudge();
+    await provisionManually();
+    // inactive: the judge is nobody. Even an assignment made by an administrator shows nothing, because the view requires an active judge.
+    await actAs(db(), "superuser");
+    await db().query("update public.judge_profiles set active = true where user_id = $1", [NEW]); // assign needs an active judge ...
+    await db().query("insert into public.judge_assignments (judge_id, submission_id) values ($1,$2)", [NEW, s.done]);
+    await db().query("update public.judge_profiles set active = false where user_id = $1", [NEW]); // ... then back to the state before activation
+    expect(await q(db(), "stranger", "select entry_id from public.judge_entries")).toEqual([]);
+    await q(db(), "admin", "update public.judge_profiles set active = true where user_id = $1", [NEW]);
+    expect(await q(db(), "stranger", "select entry_id from public.judge_entries")).toHaveLength(1);
+  });
+
+  it("manual provisioning: a profile cannot exist without the judge role, so the role must come first and an undo must remove the profile first", async () => {
+    await actAs(db(), "admin");
+    await db().exec("savepoint p");
+    await expect(db().query(profileSql, [NEW])).rejects.toMatchObject({ code: "23503" });
+    await db().exec("rollback to savepoint p");
+    await provisionManually();
+    // the undo path, newest first, as the administrator: nothing is left behind
+    expect((await q(db(), "admin", "delete from public.judge_profiles where user_id = $1 returning user_id", [NEW])).length).toBe(1);
+    expect((await q(db(), "admin", "delete from public.user_roles where user_id = $1 returning user_id", [NEW])).length).toBe(1);
+    expect(await q(db(), "superuser", "select 1 from public.user_roles where user_id = $1", [NEW])).toEqual([]);
+    expect(await q(db(), "superuser", "select 1 from public.judge_profiles where user_id = $1", [NEW])).toEqual([]);
+  });
+
+  it("manual provisioning is audited with the administrator as actor and no personal data or password in the details", async () => {
+    await provisionManually();
+    await q(db(), "admin", "update public.judge_profiles set active = true where user_id = $1", [NEW]);
+    const rows = await q<{ actor: string; action: string; table_name: string; row_id: string; details: unknown }>(
+      db(),
+      "admin",
+      "select actor, action, table_name, row_id, details from public.audit_log where row_id = $1 order by id",
+      [NEW],
+    );
+    expect(rows.map((r) => `${r.action}:${r.table_name}`)).toEqual(["INSERT:user_roles", "INSERT:judge_profiles", "UPDATE:judge_profiles"]);
+    expect(rows.every((r) => r.actor === ids.admin)).toBe(true);
+    const text = JSON.stringify(rows.map((r) => r.details));
+    expect(text).not.toMatch(/Manual Judge|password|@/); // names, e-mails and passwords never enter the audit log
+    expect(rows[2]!.details).toMatchObject({ old: { active: false }, new: { active: true } });
+  });
+
+  it("manual provisioning is refused for everyone but an administrator, at every step", async () => {
+    for (const who of ["judge1", "parentA", "stranger", "anon"] as const) {
+      for (const sql of [roleSql, profileSql]) {
+        await actAs(db(), who);
+        await db().exec("savepoint p");
+        await expect(db().query(sql, [NEW])).rejects.toMatchObject({ code: "42501" });
+        await db().exec("rollback to savepoint p");
+      }
+    }
+    expect(await q(db(), "superuser", "select 1 from public.user_roles where user_id = $1", [NEW])).toEqual([]);
+  });
+
+  it("a newly provisioned judge sees no parent or child information: no submissions, and the judge view has no personal columns", async () => {
+    const s = await assignedJudge();
+    await provisionManually();
+    await q(db(), "admin", "update public.judge_profiles set active = true where user_id = $1", [NEW]);
+    await actAs(db(), "superuser");
+    await db().query("insert into public.judge_assignments (judge_id, submission_id) values ($1,$2)", [NEW, s.done]);
+    expect(await q(db(), "stranger", "select id from public.submissions")).toEqual([]);
+    const entries = await q<Record<string, unknown>>(db(), "stranger", "select * from public.judge_entries");
+    expect(entries).toHaveLength(1);
+    expect(Object.keys(entries[0]!).filter((k) => /parent|child|email|mobile|name_of|owner/i.test(k))).toEqual([]);
+  });
 });

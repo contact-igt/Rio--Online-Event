@@ -2,4 +2,5 @@
 export type StaffRole = "admin" | "judge";
 
 export const staffLoginPath = "/staff/login";
+export const staffPasswordPath = "/staff/set-password";
 export const staffHome = (role: StaffRole): string => (role === "admin" ? "/admin" : "/judge");

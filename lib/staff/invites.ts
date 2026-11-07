@@ -83,7 +83,7 @@ export async function inviteJudgeFlow(deps: InviteDeps, raw: { email: unknown; d
   return { ok: false, code: "partial" };
 }
 
-type UserRow = { id: string; email?: string | null; created_at: string; last_sign_in_at?: string | null };
+type UserRow = { id: string; email?: string | null; created_at: string; last_sign_in_at?: string | null; app_metadata?: { must_change_password?: unknown } | null };
 
 /** Dependencies backed by Supabase. `session` is the verified administrator's own client; the secret-key client is built here, not passed around. */
 export function createInviteDeps(session: SupabaseClient): InviteDeps {
@@ -134,7 +134,7 @@ export function createAuthLookup(): AuthLookup {
     for (const id of ids.slice(0, 200)) {
       const { data } = await admin.auth.admin.getUserById(id);
       const u = data.user as unknown as UserRow | null;
-      out.set(id, { email: u?.email ?? null, lastSignInAt: u?.last_sign_in_at ?? null });
+      out.set(id, { email: u?.email ?? null, lastSignInAt: u?.last_sign_in_at ?? null, mustChangePassword: u?.app_metadata?.must_change_password === true });
     }
     return out;
   };
