@@ -1,0 +1,17 @@
+<!--
+  Supabase Auth "Invite user" e-mail, used when an administrator invites a judge from /admin/judges.
+  Paste it into Authentication > Email Templates > Invite user, and set Authentication > URL Configuration > Site URL to the website's
+  address. The link goes to the app's own password page with a ONE-TIME token hash; the token is checked only when the judge submits
+  the new password, so an e-mail scanner that merely opens the link cannot use it up.
+  Do NOT use {{ .ConfirmationURL }} here: it would sign the judge in from a link without a password step.
+  The e-mail never contains a password.
+-->
+<div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #14213d;">
+  <h2 style="color: #173b78; margin: 0 0 12px;">Rio Hospital Children's Day 2026 · நடுவர் அழைப்பு</h2>
+  <p style="margin: 0 0 16px;">You have been invited to judge entries. Choose a password to finish setting up your account.</p>
+  <p style="margin: 0 0 4px;">நடுவராகச் செயல்பட உங்களுக்கு அழைப்பு வந்துள்ளது. உங்கள் கணக்கை முடிக்க கடவுச்சொல்லைத் தேர்ந்தெடுக்கவும்.</p>
+  <p style="margin: 24px 0;">
+    <a href="{{ .SiteURL }}/staff/set-password?token_hash={{ .TokenHash }}&type=invite" style="background: #d4206b; color: #ffffff; padding: 12px 24px; border-radius: 24px; text-decoration: none; font-weight: 700;">Set my password / கடவுச்சொல்லை அமைக்க</a>
+  </p>
+  <p style="margin: 0; color: #475569;">If you were not expecting this invitation, ignore this e-mail. The link works once and expires.</p>
+</div>

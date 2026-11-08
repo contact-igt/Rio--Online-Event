@@ -10,7 +10,7 @@
 | Target launch | **2026-11-05** (see §9, Risk R1: this date is today) |
 | Winner announcement | **2026-11-14** |
 | Repo | `https://github.com/contact-igt/Rio--Online-Event.git` (empty, no commits) |
-| Brief version | Final UI/UX redesign built and tested offline (§36); landing refinement and confirmation e-mail (§35); staff sign-in (§34) — 2026-11-06 |
+| Brief version | Admin, judge and registration management built and tested offline (§37); final UI/UX redesign (§36); landing refinement and confirmation e-mail (§35) — 2026-11-07 |
 
 ---
 
@@ -1790,3 +1790,100 @@ New or rewritten: landing, competitions (age filter checked against `fitsAge` fo
 
 ### 36.3 Missing approved assets
 Hero photograph of two children, per-competition illustrations, success-page celebration art, building and giraffe background art, the lotus logo of mock-ups 01 and 02. None was supplied, so none was drawn (CLAUDE.md bans redrawn artwork); monoline icons and CSS shapes stand in.
+
+
+## 37. Admin, judge and registration management (2026-11-07): built and tested offline
+
+Local work only: no migration (none is needed), no hosted write, no staff account or invitation created, no e-mail sent, no R2 write, registration not opened, nothing committed or deployed. All switches are off, including the new `RIO_STAFF_INVITES_ENABLED`.
+
+### 37.1 What was added
+- **Staff login** is one small icon button (user with a cog, `aria-label="Staff login"`) at the right edge of the public header on every screen size. It opens a menu (arrow keys, Home/End, Escape, outside click) with Admin Login and Judge Login, both to the existing `/staff/login`. The footer and the phone Menu no longer list the logins, so there is one entry point (`components/staff-menu.tsx`). `?role=admin|judge` only changes the heading and is never read for access; there is still one sign-in.
+- **Admin sidebar** (Dashboard, Registrations, Judges, Assign Judges, Scoring, Results, Event Settings), shown only to a verified administrator. The last four open existing sections (competition page anchors, the dashboard's settings), not new screens.
+- **`/admin/registrations` and `/admin/registrations/[id]`:** counts and a searchable, filterable, paged table, and an administrator-only details page, all read with the administrator's own session. A draft is never shown or counted as a submission. The private video reference is reduced to a yes/no.
+- **`/admin/judges`:** name, e-mail, status (invited, active, inactive), assigned entries, scoring progress; Activate and Deactivate (deactivation needs a confirmation that the server also enforces); an invitation form that is disabled and says why until invitations are switched on.
+- **Judge invitation:** Supabase Auth sends the e-mail (`inviteUserByEmail`); the judge sets a password at `/staff/set-password` from a one-time link (the token is used only when the form is sent). The role and profile are recorded with the administrator's own session. An e-mail that already has an account is refused. Partial failures are undone where that is safe and otherwise reported exactly.
+- **Event settings** on the dashboard: read-only open or closed, opening and closing time in IST, timezone Asia/Kolkata. Nothing there can be edited.
+- **`/dev/registration-preview`:** the real registration form with empty, error and draft states and a stand-in action that runs the real validation and does nothing. It is a 404 whenever `NODE_ENV` is production.
+
+### 37.2 Security basis
+Administrator-only reads of personal data rely on existing row level security (an administrator reads all submissions; a judge and an anonymous caller read none) and on `requireStaff("admin")` first on every page. Every judge action calls `staffSession("admin")` before anything else. The secret key is built in one file (`lib/staff/invites.ts`), only after those checks. Judges cannot create judges: only an administrator can insert roles (policy), and the invitation path can only grant the judge role.
+
+### 37.3 Tests
+Real-database tests of the exact reads and writes as administrator, judge, parent and anonymous caller (`supabase/tests/admin-management.test.ts`); unit tests of the invitation flow (duplicate, rate limit, partial failure, no deletion of old or signed-in accounts), the password setup, the actions (a non-admin gets "notAllowed" with nothing built or called), filters; static guards; browser tests on the real pages at 360, 390, 768 and 1440 px (contrast, overflow, tap targets) and on the production build.
+
+### 37.4 Open items
+1. No judge invitation has been sent for real: SMTP of Supabase Auth, the invitation template, Site URL and a received test invitation are all still to do, then `RIO_STAFF_INVITES_ENABLED=yes`.
+2. Viewing personal data is not audit-logged: the audit log is written only by database triggers and a read has none. Logging reads needs a reviewed migration (not added).
+3. "Video verified" is derived from the entry status (an entry only becomes `uploaded` after the server verified the stored object); the `video_uploads` table is service-role only and is not read by these screens.
+4. The registration list reads up to 5,000 rows and filters them in the server; a very large event needs database-side paging.
+5. An administrator's own judge-or-admin role cannot be changed from the screen; an administrator role can only be granted outside the app.
+
+## 38. Manual judge account management (2026-11-07): built and tested offline; no account created, nothing sent
+
+Replaces the need to e-mail invitations. The administrator creates a judge directly at `/admin/judges`. **No migration is needed or added.** No hosted Supabase write, e-mail, R2 write or date change was made.
+
+### 38.1 What it does
+- **Add judge** (name, e-mail, a box "I have confirmed that this e-mail address belongs to the judge", button). The server action verifies the administrator session first, then the switch, then the secret key. It generates the password on the server (Web Crypto, 20 letters and digits without look-alikes in five hyphenated groups, 24 characters, about 115 bits), calls Supabase Auth `admin.createUser` (`email_confirm: true` only because the administrator vouched for the address; `app_metadata.must_change_password: true`), then with the **administrator's own session** inserts the `judge` role, inserts the profile **inactive**, and switches it on as the **last** step. Any failure undoes the earlier steps newest first; if an undo also fails the answer is "partial" (no role or an inactive profile, password never shown). A duplicate address is refused by Supabase and nothing existing is touched or converted.
+- The password is returned once to that administrator, shown as text (not in a form field), with Copy password, Copy sign-in details and "I have saved it" buttons; it disappears on hiding, after 5 minutes, or on leaving. It is never written to a table, log, URL, storage or e-mail.
+- **Reset password** per judge (confirmation first): the server writes the audit row, then sets a new generated password and the mark. The old password is never read. Existing sessions are not ended (see 38.4).
+- **First login**: `/staff/login` is unchanged. `lib/staff/auth.ts` gives no staff session (every action returns "not allowed") and sends every staff page to `/staff/set-password` while `app_metadata.must_change_password === true`. Only the secret key can write `app_metadata`; the judge cannot clear it. The mark is lifted by `app/staff/set-password/actions.ts` only after Supabase accepted the judge's own new password (the same password is refused by Supabase).
+- Inactive judges are refused at sign-in and by every check (unchanged). A judge sees only assigned entries by code, never parent or child data; R2 playback, scoring and finalization are unchanged.
+- The judge list shows name, e-mail, status (Not signed in yet / Active / Inactive), "Password change pending", assigned count, scoring progress, Activate/Deactivate and Reset password. The invitation form is removed from the page; the invitation code and its switch `RIO_STAFF_INVITES_ENABLED` are left in place, off and unused.
+
+### 38.2 Switch
+`RIO_STAFF_PROVISIONING_ENABLED`, server-only, default OFF, only the exact value `yes` allows creating or resetting. It never reads or reuses `RIO_STAFF_INVITES_ENABLED`. Needs `SUPABASE_SECRET_KEY`. Changing it needs a redeploy.
+
+### 38.3 Tests
+Unit (`lib/staff/provisioning.test.ts`, `lib/staff/auth.test.ts`, `app/admin/judges/actions.test.ts`, `app/staff/set-password/actions.test.ts`): admin can provision when enabled; non-admin cannot; disabled blocks; duplicate; rollback at each step and a failed undo; password rules and uniqueness; first-login gate; inactive judge; the mark is lifted only after the password was accepted. Real-database (`supabase/tests/admin-management.test.ts`): the steps as administrator, judge, parent, anonymous; inactive-first; audit rows with the administrator as actor and no personal data; a new judge sees no submissions. Static guards and browser tests at 360, 390, 768 and 1440 px (contrast, overflow, tap targets, with the password shown).
+
+### 38.4 Open items and limits (to decide)
+1. **Audit of a password reset** has no table change to trigger on, so it is recorded as an `UPDATE` of the judge's profile with unchanged state, written by the administrator before the password is changed. It is not labelled "password reset". A labelled event needs a small migration (a service-restricted function that inserts an `audit_log` row). **Not implemented; needs approval.**
+2. **The first-login rule is enforced by the application, not by the database.** A judge holding the initial password could call the Supabase Data API directly; row level security still limits them to their assigned entries by code, but the rule is not in the database. Enforcing it in RLS needs a migration.
+3. A reset does not end the judge's existing sessions (the Auth admin API ends sessions only with the user's own token). The pending mark does block every action of an existing session until the password is changed.
+4. The administrator is trusted to have verified that the e-mail belongs to the judge; the box records the statement on screen only (it is not stored).
+5. Judge accounts are still not created anywhere: switch off, no hosted write made.
+6. Removing the unused invitation code (`inviteJudge`, `lib/staff/invites.ts` flow, template, switch) is a separate clean-up.
+
+## 39. Judge provisioning security review (2026-11-07): one migration prepared and tested locally; NOT applied to DEV or production
+
+Closes the three gaps listed in section 38.4. Migration `supabase/migrations/20261105000900_judge_password_gate.sql` (SHA-256 prefix `891609dc54f9b03b`), rollback `supabase/rollback/20261105000900_down.sql` (by hand only), tests `supabase/tests/judge-password-gate.test.ts`. Applied only to in-memory local databases (Postgres 17 and 18).
+
+### 39.1 Direct Data API review (what a signed-in judge can do)
+Reads: own `user_roles` row, own `judge_profiles` row, own `judge_assignments` rows (opaque ids), own `scores` (only while `is_judge()`), the `judge_entries` view (only while `is_judge()`), public data (events, settings, published winners). Writes: `scores` insert and update on assigned finalized entries (through `judge_can_score`, which calls `is_judge()`), nothing else (no delete right, no other table). No route to `submissions`, `audit_log`, `winners`, `video_uploads` or `email_outbox`. `authorize_playback` is service-role only.
+
+### 39.2 Findings fixed by the migration
+1. **A judge with the initial password could use the Data API directly** (read assigned entries, write scores) because only the application enforced the first-login rule. `private.is_judge()` now also requires "no password change pending", read from `auth.users.raw_app_meta_data` on every call through a private SECURITY DEFINER helper that no client role can execute. The state is the account row, not the token: a token issued before a reset is refused the moment the mark is set. Only the secret key can write `app_metadata`; `user_metadata` (editable by the user) is ignored; a missing account row counts as pending.
+2. **A judge could list the ids of their assigned entries even when deactivated** (`assignments_read`). Now requires `is_judge()` too.
+3. `authorize_playback` (service role) gets the same check.
+4. **Password-reset audit**: `public.record_judge_password_reset(actor, judge, outcome)`, service-role only, writes `JUDGE_PASSWORD_RESET_STARTED`, `JUDGE_PASSWORD_RESET` or `JUDGE_PASSWORD_RESET_FAILED` with the administrator, the judge and the time, and `{"outcome": ...}` only. It checks the actor is an administrator and the target a judge. Because only the server can call it, an administrator cannot forge or skip the rows. The reset no longer rewrites the judge profile, so the earlier misleading `UPDATE` row is gone. The app writes STARTED first (if that fails nothing changes), then sets the password, then SUCCESS or FAILED.
+
+### 39.3 Session safety (documented Supabase mechanisms only)
+Supabase documents no admin call that ends all sessions of a user by user id; `auth.admin.signOut(jwt)` needs that user's own valid token, which an administrator does not have. Access tokens stay valid until they expire (default 1 hour). Strategy: (a) the reset sets the mark, and the database gate and the application gate refuse the judge's existing sessions and tokens at once, whatever their remaining lifetime; (b) the judge's own password change goes through Auth's documented password update, after which the mark is lifted; (c) recommended Auth settings: JWT expiry 1 hour or less (not below 5 minutes); on a Pro plan, "Single session per user", "Time-box user sessions" and "Inactivity timeout". Undocumented operations (deleting `auth.sessions` rows, ban and unban tricks) are not used.
+
+### 39.4 Open items
+1. Apply 00900 to DEV (read of `auth.users` by the migration owner must be confirmed there: it is the standard Supabase pattern, but it was tested only against the local stand-in), then rerun the DEV database checks. Needs approval.
+2. A judge account created by hand in the dashboard (DEPLOYMENT section 6, step 5) is not marked, so it is not gated; the manual procedure should set the mark or the judge should be created from the screen.
+3. Rolling back 00900 returns to application-only enforcement.
+
+## 40. Preview readiness check for manual judge provisioning (2026-11-07)
+
+Migrations 00800 and 00900 are applied to the DEV project (guarded push; catalog verified identical to a local 00100 to 00900 build). They are in the repository and were not applied again.
+
+### 40.1 Rio Admin "Add judge" versus creating a user in the dashboard
+| | Rio Admin, Add judge | Supabase dashboard, Add user |
+|---|---|---|
+| Password | generated on the server, 24 characters, shown once to the administrator | typed by the person creating it |
+| First-login mark (`app_metadata.must_change_password = true`) | set in the creation call, **read back from the saved account; if it is not exactly true the account is deleted again and nothing is left** | **not set** |
+| Role and profile | role, then profile inactive, then activation last, with the administrator's own session and audit triggers | by hand in SQL |
+| Judge area before the password change | closed by the application (`lib/staff/auth.ts`) and by the database (`private.is_judge()`) | open: no mark, so no gate |
+| Reset | mark set and confirmed FIRST, then the password changed in a second call, so no known password ever exists without the mark | dashboard password change: no mark |
+
+### 40.2 Defects fixed in this check
+1. The creation did not verify the mark after saving it. It now reads it back from the account Supabase returned and removes the account if it is missing.
+2. The reset set the password and the mark in one call and did not confirm the mark. It now sets and confirms the mark first, then changes the password. If the second call fails the judge is left pending (the old password then only forces a change).
+
+### 40.3 Vercel Preview environment (Preview scope only; values never written here)
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: the DEV project. `RIO_SUPABASE_ALLOWED_REF=rajbfcoxolnjgiqgvflm`.
+- `RIO_UPLOADS_ENABLED=no`, `RIO_FINALIZE_ENABLED=no`, `RIO_PLAYBACK_ENABLED=no`, `RIO_EMAIL_ENABLED=no`, `RIO_STAFF_INVITES_ENABLED=no`, `RIO_STAFF_PROVISIONING_ENABLED=no` (or unset: only the exact value `yes` enables anything).
+- `SUPABASE_SECRET_KEY` is not needed while provisioning is off, and must not be set in a Preview that also has the switch on until the owner decides to test. No production value in Preview.
+- `R2_ACCOUNT_ID` is a build-time value (the Content-Security-Policy). Nothing else R2 is needed while uploads and playback are off.

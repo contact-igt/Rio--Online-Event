@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CompetitionBrowser } from "@/components/competition-browser";
+import { HeroVisual } from "@/components/hero-visual";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { InfoStrip } from "@/components/ui/info-strip";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -35,23 +36,32 @@ export default async function CompetitionsPage() {
     <>
       <section aria-labelledby="choose-title" className="wash">
         <div className="mx-auto w-full max-w-[1200px] px-4 pb-8 pt-[clamp(1.75rem,5vw,3.25rem)] sm:px-6 lg:px-8">
-          <p lang="en" className="eyebrow">
-            <span aria-hidden="true" className="h-px w-8 bg-current" />
-            Children&apos;s Day Celebration 2026
-          </p>
-          <h1 id="choose-title" className="mt-3 text-[clamp(2.4rem,9vw,4.25rem)] font-extrabold leading-[1.3]">
-            <span className="block">போட்டியைத்</span>{" "}
-            <span className="block text-rio-rose">தேர்வு செய்யுங்கள்!</span>
-          </h1>
-          <p lang="en" className="font-display text-[clamp(1.4rem,4vw,2rem)] font-bold text-rio-navy">
-            Choose a Competition!
-          </p>
-          <p className="mt-3 max-w-[56ch] text-lg">உங்கள் குழந்தையின் திறமைக்கு ஏற்ற போட்டியைத் தேர்ந்தெடுத்து, பதிவு செய்து, வீடியோவைப் பதிவேற்றுங்கள்.</p>
-          <p lang="en" className="max-w-[56ch] text-rio-slate">
-            Pick a competition that matches your child&apos;s talent, register, and upload the video.
-          </p>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-end lg:gap-10">
+            <div className="lg:pb-4">
+              <p lang="en" className="eyebrow">
+                <span aria-hidden="true" className="h-px w-8 bg-current" />
+                Children&apos;s Day Celebration 2026
+              </p>
+              <h1 id="choose-title" className="mt-3 text-[clamp(2.35rem,8vw,3.85rem)] font-extrabold leading-[1.26]">
+                <span className="block">போட்டியைத்</span>{" "}
+                <span className="block text-rio-rose">தேர்வு செய்யுங்கள்!</span>
+              </h1>
+              <p lang="en" className="font-display text-[clamp(1.35rem,3.8vw,1.9rem)] font-bold text-rio-navy mt-1">
+                Choose a Competition!
+              </p>
+              <p className="mt-3.5 max-w-[54ch] text-[clamp(1.02rem,2.2vw,1.15rem)] leading-[1.7] text-rio-ink">
+                உங்கள் குழந்தையின் திறமைக்கு ஏற்ற போட்டியைத் தேர்ந்தெடுத்து, பதிவு செய்து, வீடியோவைப் பதிவேற்றுங்கள்.
+              </p>
+              <p lang="en" className="mt-1 max-w-[54ch] text-[clamp(0.92rem,1.8vw,1.02rem)] leading-relaxed text-rio-slate">
+                Pick a competition that matches your child&apos;s talent, register, and upload the video.
+              </p>
+            </div>
+            <div className="hidden lg:flex lg:items-end lg:justify-end self-end">
+              <HeroVisual size="competitions" />
+            </div>
+          </div>
 
-          <ol aria-label="Four steps to take part" className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <ol aria-label="Four steps to take part" className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {stages.map((s, i) => (
               <li key={s.en} aria-current={i === 0 ? "step" : undefined} className={`flex min-w-0 items-center gap-3 rounded-full px-4 py-2.5 ${i === 0 ? "bg-rio-rose text-white shadow-[0_12px_22px_-14px_rgb(212_32_107/0.8)]" : "card !rounded-full text-rio-navy"}`}>
                 <Icon name={s.icon} className={`h-6 w-6 ${i === 0 ? "" : "text-rio-rose"}`} />

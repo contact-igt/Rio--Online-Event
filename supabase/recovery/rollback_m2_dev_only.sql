@@ -40,6 +40,7 @@ drop function if exists public.finish_participation_email(uuid, text);
 drop function if exists public.due_participation_emails(integer);
 drop table if exists public.email_outbox;
 drop function if exists public.mark_video_upload_deleted(uuid);
+drop function if exists public.record_judge_password_reset(uuid, uuid, text);
 
 -- helper and trigger functions all live in schema private
 drop schema if exists private cascade;
@@ -54,7 +55,7 @@ do $$
 begin
   if to_regclass('supabase_migrations.schema_migrations') is not null then
     delete from supabase_migrations.schema_migrations
-    where version in ('20261105000100', '20261105000200', '20261105000300', '20261105000400', '20261105000500', '20261105000600', '20261105000700', '20261105000800');
+    where version in ('20261105000100', '20261105000200', '20261105000300', '20261105000400', '20261105000500', '20261105000600', '20261105000700', '20261105000800', '20261105000900');
   end if;
 end $$;
 

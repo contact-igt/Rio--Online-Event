@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AgeRuler } from "@/components/age-ruler";
 import { RegisterCall } from "@/components/register-call";
+import { SpeakerVisual } from "@/components/speaker-visual";
 import { Icon, eventIcon } from "@/components/ui/icon";
 import { loadPublicRegistration } from "@/lib/registration/public-status";
 import { ageRangeEn, events, getEvent, rules, sharedAges, winnersLine } from "@/lib/events";
@@ -52,42 +53,50 @@ export default async function EventPage({ params }: { params: Params }) {
   return (
     <article>
       <section className="wash">
-        <div className="mx-auto w-full max-w-[1200px] px-4 pb-8 pt-[clamp(1.25rem,4vw,2.5rem)] sm:px-6 lg:px-8">
-          <Link href="/competitions" className="inline-flex min-h-11 flex-wrap items-center gap-x-2 font-semibold text-rio-blue underline underline-offset-4">
-            <span>← அனைத்துப் போட்டிகள்</span>
-            <span lang="en">/ All competitions</span>
-          </Link>
+        <div className="mx-auto flex w-full max-w-[1200px] flex-col justify-between gap-6 px-4 pb-8 pt-[clamp(1.25rem,4vw,2.5rem)] sm:px-6 lg:flex-row lg:items-center lg:px-8">
+          <div className="min-w-0 flex-1">
+            <Link href="/competitions" className="inline-flex min-h-11 flex-wrap items-center gap-x-2 font-semibold text-rio-blue underline underline-offset-4">
+              <span>← அனைத்துப் போட்டிகள்</span>
+              <span lang="en">/ All competitions</span>
+            </Link>
 
-          <p lang="en" className="eyebrow mt-3">
-            <span aria-hidden="true" className="h-px w-8 bg-current" />
-            Competition {event.number} of {events.length}
-          </p>
-          <div className="mt-3 flex items-start gap-4">
-            <span aria-hidden="true" className="hidden size-20 shrink-0 place-items-center rounded-3xl bg-white text-rio-rose shadow-[0_16px_28px_-20px_rgb(212_32_107/0.6)] sm:grid">
-              <Icon name={eventIcon[event.slug] ?? "star"} className="h-11 w-11" />
-            </span>
-            <div className="min-w-0">
-              <h1 className="text-[clamp(2.25rem,8vw,4.25rem)] font-extrabold [overflow-wrap:anywhere]">{event.nameTa}</h1>
-              <p lang="en" className="font-display text-[clamp(1.35rem,4vw,2rem)] font-bold text-rio-rose">
-                {event.nameEn}
-              </p>
+            <p lang="en" className="eyebrow mt-3">
+              <span aria-hidden="true" className="h-px w-8 bg-current" />
+              Competition {event.number} of {events.length}
+            </p>
+            <div className="mt-3 flex items-start gap-4">
+              <span aria-hidden="true" className="hidden size-20 shrink-0 place-items-center rounded-3xl bg-white text-rio-rose shadow-[0_16px_28px_-20px_rgb(212_32_107/0.6)] sm:grid">
+                <Icon name={eventIcon[event.slug] ?? "star"} className="h-11 w-11" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-[clamp(2.25rem,8vw,4.25rem)] font-extrabold [overflow-wrap:anywhere]">{event.nameTa}</h1>
+                <p lang="en" className="font-display text-[clamp(1.35rem,4vw,2rem)] font-bold text-rio-rose">
+                  {event.nameEn}
+                </p>
+              </div>
             </div>
+
+            <ul className="mt-6 grid max-w-xl grid-cols-3 gap-2 sm:gap-3">
+              {details.map((d) => (
+                <li key={d.en} className="card flex min-w-0 flex-col gap-0.5 px-3 py-3">
+                  <Icon name={d.icon} className="h-6 w-6 text-rio-rose" />
+                  <span className="text-sm font-semibold leading-tight text-rio-navy">{d.ta}</span>
+                  <span lang="en" className="text-xs leading-tight text-rio-slate">
+                    {d.en}
+                  </span>
+                  <span lang="en" className="font-display text-lg font-bold leading-tight text-rio-navy tabular-nums">
+                    {d.value}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <ul className="mt-6 grid max-w-xl grid-cols-3 gap-2 sm:gap-3">
-            {details.map((d) => (
-              <li key={d.en} className="card flex min-w-0 flex-col gap-0.5 px-3 py-3">
-                <Icon name={d.icon} className="h-6 w-6 text-rio-rose" />
-                <span className="text-sm font-semibold leading-tight text-rio-navy">{d.ta}</span>
-                <span lang="en" className="text-xs leading-tight text-rio-slate">
-                  {d.en}
-                </span>
-                <span lang="en" className="font-display text-lg font-bold leading-tight text-rio-navy tabular-nums">
-                  {d.value}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {event.slug === "kutti-pesalar" && (
+            <div className="hidden shrink-0 lg:block">
+              <SpeakerVisual />
+            </div>
+          )}
         </div>
       </section>
 

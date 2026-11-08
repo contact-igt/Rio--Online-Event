@@ -72,7 +72,7 @@ test.describe("structure and content", () => {
     await page.waitForLoadState("networkidle");
     expect(urls.some((u) => /poster/i.test(u))).toBe(false);
     const images = await page.locator("img").evaluateAll((els) => els.map((e) => `${e.getAttribute("src")}|${e.getAttribute("alt")}`));
-    expect(images.every((i) => /rio.*logo/i.test(i))).toBe(true); // the only pictures are the supplied logo in the header and footer
+    expect(images.every((i) => /rio.*logo|hero-children/i.test(i))).toBe(true); // only the logo and approved hero children image; never a poster
     expect(await page.content()).not.toMatch(/Event poster/i);
   });
 

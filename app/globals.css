@@ -40,6 +40,8 @@
   --color-rio-ok: var(--rio-ok);
   --font-display: var(--font-baloo), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-hind), ui-sans-serif, system-ui, sans-serif;
+  /* Section headings: Anek Tamil covers Tamil letters only, so any English in a heading stays in Baloo. */
+  --font-heading: var(--font-anek), var(--font-baloo), ui-sans-serif, system-ui, sans-serif;
 }
 
 html {
@@ -67,6 +69,11 @@ body {
     /* Large display Tamil: 1.35 avoids a broken-looking gap at 80px; body copy stays at 1.7. */
     line-height: 1.35;
     text-wrap: balance;
+  }
+
+  h2,
+  h3 {
+    font-family: var(--font-heading);
   }
 
   :focus-visible {

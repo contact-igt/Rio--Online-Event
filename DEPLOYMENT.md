@@ -48,6 +48,8 @@ Set in Vercel **Production** scope only. Nothing here exists in any production e
 | `EMAIL_FROM` | no | no | a sender on a domain verified with the provider (SPF, DKIM, DMARC), for example `Rio Hospital <noreply@your-domain>` |
 | `EMAIL_REPLY_TO` | no | no | optional |
 | `CRON_SECRET` | **yes** | no | at least 32 random characters; the scheduler sends it as `Authorization: Bearer ...` to `/api/email-sweep`, which retries failed e-mails (404 for everyone else) |
+| `RIO_STAFF_INVITES_ENABLED` | no | no | `no` unless exactly `yes`. Judge invitations from `/admin/judges`. While off, the form is disabled with a visible warning and no Supabase Auth call is made. Turn it on only after Supabase Authentication has working custom SMTP, the invitation template is pasted in and a test invitation was received. Also needs `SUPABASE_SECRET_KEY` (server-only) |
+| `RIO_STAFF_PROVISIONING_ENABLED` | no | no | **Apply migration 00900 first (section 6, step 3).** `no` unless exactly `yes`; a separate switch that never reads the invitations one. Lets an administrator create a judge account directly at `/admin/judges` (server-generated password shown once, nothing e-mailed, the judge must choose their own at first sign-in) and reset a judge's password. While off the form is disabled and no Supabase Auth call is made. Needs `SUPABASE_SECRET_KEY`; changing it needs a redeploy. Session safety: see PROJECT_BRIEF section 39.3 (also set the JWT expiry to 1 hour or less) |
 
 Never set in Vercel: `RIO_DIST_DIR`, `RIO_DEV_PROJECT_REF`, `RIO_CONFIRM_PUSH`, `RIO_LIVE_*`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DEV_POOLER_URL`
 (tooling and tests only). Preview deployments must have no production secrets (point them at DEV or give them none). Check R2 settings without printing
@@ -61,6 +63,7 @@ them: `npm run r2:check`.
 | Supabase Auth | configure | email provider on, other providers off; OTP length and expiry fixed; site URL = production domain; project rate limits on; **custom SMTP** (see below) |
 | Email delivery | create | Two separate uses of e-mail: (1) Supabase Auth sign-in codes, which need custom SMTP (the built-in sender allows only a handful per hour: not usable for launch) and the template `supabase/templates/otp-code.html`; (2) the app's confirmation e-mail through the provider API above. A domain with SPF, DKIM and DMARC serves both; the same provider can do both |
 | Scheduler | create | a Vercel Cron (or any scheduler) calling `GET /api/email-sweep` with the bearer secret every 5 to 10 minutes once e-mail is enabled; add the cron entry to `vercel.json` at that time (not present now) |
+| Supabase Auth: staff invitations | configure | Authentication > Email Templates > Invite user: paste `supabase/templates/invite-judge.html` (the link opens `/staff/set-password` with a one-time token, so the judge chooses a password; no password is ever e-mailed). Authentication > URL Configuration > Site URL: the website address. Custom SMTP must be working (the built-in sender allows only a few e-mails per hour). Password rules (length, strength) are set in Authentication > Providers > Email |
 | Cloudflare R2 production bucket | create | **private**: no custom domain, `r2.dev` off. Token scoped to this bucket only. CORS: `PUT` from the production origin only (no wildcard), header `Content-Type`, expose `ETag`. Lifecycle: delete `pending/` objects after 1 day. No other public access |
 | Vercel project | create | paid plan (the free plan is not for commercial use); region near Supabase; deployment protection on previews; function duration long enough for final submission (it reads up to 14 small ranges from R2) |
 | Domain and HTTPS | client to supply | Vercel issues the certificate; the app already sends HSTS and `upgrade-insecure-requests` |
@@ -104,6 +107,7 @@ Blocker = do not launch until resolved or explicitly accepted in writing by the 
 | B12 | Switches are fixed at build time: enabling one needs a redeploy | Operational note |
 | B13 | Confirmation e-mail has never been sent for real: provider not chosen, domain not verified, migration 00800 not applied, no scheduler. Everything is tested with mocks only. The app promises an e-mail nowhere while it is off | **Blocker for the confirmation e-mail only** (leave `RIO_EMAIL_ENABLED=no` and the launch can proceed without it) |
 | B14 | The logo used everywhere is the supplied `rio logo v2.png` (giraffe, in the approved mock-ups 03 to 06). Mock-up 01 and 02 show a different lotus logo that was not supplied, and no hero photograph or illustrations were supplied: the owner must provide approved files if wanted | Should-fix |
+| B15 | Judge invitations have never been sent for real: no hosted account was created, SMTP and the invitation template are not configured or tested, and `RIO_STAFF_INVITES_ENABLED` is `no`. Existing judges are unaffected | **Blocker for inviting judges from the screen only** (the two provisioned DEV accounts keep working) |
 
 ## 6. Deployment steps (each needs the owner's explicit approval; do not run any of them without it)
 
@@ -112,8 +116,9 @@ Blocker = do not launch until resolved or explicitly accepted in writing by the 
 3. Apply migrations `20261105000100` to `20261105000700`, in order, to **production only after** the same files are confirmed unchanged by their hashes
    (00100 `fe3e2851f8343d46`, 00200 `224b5d0ce4801714`, 00300 `b36e4314f56dd4f9`, 00400 `8c995be9d66de368`, 00500 `321659c194f2f25d`,
    00600 `539ae80ea433ea86`, 00700 `dbedd1f8efabaf09`, each a prefix of its SHA-256). Use a reviewed, approved procedure (the guarded tool is DEV-only).
-   Migration `20261105000800` (the confirmation e-mail outbox, hash prefix `1d52fdcc7890f69a`) is **prepared and not applied anywhere**: apply it after 00700 only
+   Migration `20261105000800` (the confirmation e-mail outbox, hash prefix `1d52fdcc7890f69a`) is **applied to the DEV project only (2026-11-07, guarded push, with 00900); not applied to production**: apply it after 00700 only
    when the owner approves enabling the confirmation e-mail. Until then the app records nothing, and a submission is never affected.
+   Migration `20261105000900` (judge first-login password gate in the database and the labelled password-reset audit event, hash prefix `891609dc54f9b03b`, rollback `supabase/rollback/20261105000900_down.sql`) is **applied to the DEV project only (2026-11-07, guarded push, verified: catalog identical to a local 00100 to 00900 build); not applied to production**: apply it after 00700 (00800 is independent) **before** `RIO_STAFF_PROVISIONING_ENABLED=yes`, with the owner's approval; without it the first-login rule is enforced by the application only and a password reset has no labelled audit event.
    Verify as was done on DEV: history, six events, registration closed (all settings null), function owners and EXECUTE rights, RLS on every table.
 4. Create the production R2 bucket, token, CORS and lifecycle rule (section 3). Run `npm run r2:check` with the production values.
 5. Create staff. Staff sign in at `/staff/login` with an email and a password; accounts are created only by a project owner, never by the app.
@@ -126,6 +131,9 @@ Blocker = do not launch until resolved or explicitly accepted in writing by the 
      `insert into public.user_roles (user_id, role) select id, 'admin' from auth.users where email = '<email>';`
      and for a judge `... 'judge' ...` followed by
      `insert into public.judge_profiles (user_id, display_name) select id, '<name>' from auth.users where email = '<email>';`
+   - **Judges should be created with Rio Admin (Add judge), not by hand.** An account made in the dashboard carries no first-login mark (`app_metadata.must_change_password`), so the database gate
+     of migration 00900 does not apply to it and the person keeps whatever password was typed. Rio Admin sets the mark at creation, confirms it from the saved account, and the judge area stays closed until the
+     judge has chosen their own password. Use the dashboard route for administrators only, or for a judge only with the owner's explicit acceptance of that difference.
    - A person with no role, a parent, and a judge whose profile is `active = false` are refused at `/staff/login` even with a correct password.
      Deactivate a judge with `update public.judge_profiles set active = false where user_id = (select id from auth.users where email = '<email>');`
    - Staff can also still sign in with an e-mailed code at `/signin` (same account, same role check); that cannot be switched off without changing the parent flow.
@@ -178,5 +186,6 @@ All must be "Met" for GO. Today's status is the right-hand column.
 | 17 | All three switches `no` until their step in section 6 | Met |
 | 18 | Confirmation e-mail: provider chosen, domain verified, 00800 applied, a real test e-mail received, scheduler set; or the owner accepts launching without it | **Not met** (e-mail stays `no`) |
 | 19 | The owner approves the new look of the public pages (pink and indigo palette, logo file) | **Not met** |
+| 20 | Judge invitations: SMTP and the invitation template configured, one real invitation received and a password set, then `RIO_STAFF_INVITES_ENABLED=yes`; or the owner accepts creating judges by the provisioning script | **Not met** (invitations stay `no`) |
 
 **Decision today: NO-GO / NOT READY for production deployment.**

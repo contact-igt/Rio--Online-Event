@@ -9,3 +9,6 @@ export function useRouter() {
 export function notFound(): never {
   throw new Error("notFound");
 }
+export function usePathname() {
+  return window.__path ?? "/admin";
+}

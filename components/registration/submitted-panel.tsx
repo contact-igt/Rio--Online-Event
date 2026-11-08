@@ -55,7 +55,7 @@ export function SubmittedPanel(d: SubmittedDetails) {
       </p>
 
       <div className="mt-5 overflow-hidden rounded-2xl border border-rio-navy/10">
-        <h3 className="flex items-center gap-3 bg-rio-mist px-4 py-3 font-display text-lg font-bold">
+        <h3 className="flex items-center gap-3 bg-rio-mist px-4 py-3 font-heading text-lg font-bold">
           <Icon name="clipboard" className="h-6 w-6 text-rio-rose" />
           {reg.submit.detailsTitle.ta} <span lang="en">/ {reg.submit.detailsTitle.en}</span>
         </h3>

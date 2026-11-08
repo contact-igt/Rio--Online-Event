@@ -1,7 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { audit } from "./helpers/audit";
-import { bundleFixture } from "./fixtures/bundle";
+import { builtCss, openStaff, staffBundle } from "./helpers/staff-bundle";
 
 // The REAL administrator and judge pages (server components, called as plain functions) in the installed Chrome with a fake database.
 // They show that every number on the dashboards is counted from the rows, that nothing private reaches a judge, that no button is a dead
@@ -41,32 +40,12 @@ const data = {
 };
 
 test.beforeAll(async () => {
-  bundle = await bundleFixture("e2e/fixtures/staff-pages-entry.tsx", {
-    "@/lib/staff/auth": "e2e/fixtures/fake-staff-auth.ts",
-    "@/lib/judging/server": "e2e/fixtures/fake-judging-server.ts",
-    "@/app/judge/actions": "e2e/fixtures/fake-judge-actions.ts",
-    "next/navigation": "e2e/fixtures/fake-navigation.ts",
-    "next/link": "e2e/fixtures/fake-link.tsx",
-  });
-  try {
-    css = readdirSync(".next/static/css").filter((f) => f.endsWith(".css")).map((f) => readFileSync(`.next/static/css/${f}`, "utf8")).join("\n");
-  } catch {
-    css = "";
-  }
+  bundle = await staffBundle();
+  css = builtCss();
 });
 
 async function open(page: Page, mode: string, rows: Record<string, unknown[]> = data) {
-  await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><body style="margin:0;background:#fff8fb"><main id="root" class="wash"></main></body>');
-  if (css) await page.addStyleTag({ content: css });
-  await page.evaluate(
-    ({ h, d }) => {
-      location.hash = h;
-      window.__staffData = d as never;
-    },
-    { h: mode, d: rows },
-  );
-  await page.addScriptTag({ content: bundle });
-  await page.waitForSelector("body[data-ready='1'] h1");
+  await openStaff(page, bundle, css, mode, { data: rows });
 }
 
 test.describe("administrator dashboard", () => {
