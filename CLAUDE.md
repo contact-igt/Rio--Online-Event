@@ -11,7 +11,8 @@ Project truth lives in `PROJECT_BRIEF.md`. Read it first. This file holds the st
 
 ## Stack
 Next.js (App Router) · TypeScript `strict` · Tailwind · Supabase Postgres/Auth with RLS · private Cloudflare R2 · Vercel · pnpm.
-Verify commands in `package.json` once M1 exists: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+Repository: four standalone projects, each with its own `package.json`, lock file and `node_modules`: `website/` (public site), `admin/` (admin + judge panel), `backend/` (Node.js + Express + TypeScript API, **M1 foundation only**: health endpoint, no database, no Auth, no registration yet), `database/` (Supabase migrations and DB tests); see `DEPLOYMENT.md` section 0. Verify inside each folder: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+Migration in progress: the owner has chosen Express + MySQL 8 (SQLite locally) to replace Supabase, but until each later module is approved and finished, the Supabase rules in this file and the brief remain the ones in force for `website/` and `admin/`. The backend folder must not receive a production database connection before its module is approved.
 
 ## Minimal-code rules (Ponytail-style)
 - Smallest change that meets the acceptance criteria. No abstraction until the second real use.

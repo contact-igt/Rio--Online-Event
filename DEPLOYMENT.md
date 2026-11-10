@@ -4,6 +4,32 @@ Status 2026-11-06 (announcement date 14 November 2026 IST, eight days away): **t
 DEV project. Nothing is deployed and no production resource exists. NOT READY for production.** This file names settings and steps; it never
 contains a value. Evidence for every claim: `PROJECT_BRIEF.md` §27 to §33.
 
+## 0. Repository layout and the two sites
+
+Three folders, each a complete project of its own (own `package.json`, `package-lock.json` and `node_modules`; run `npm install` inside the folder you want, then its commands):
+
+| Folder | What it is | Run | Deployed |
+|---|---|---|---|
+| `website/` | public site for parents: landing, competitions, registration, sign-in, account, results, upload, e-mail sweep | `npm run dev` (port 3000) | Vercel project 1, root directory `website` |
+| `admin/` | admin panel, judge panel and staff sign-in (`/admin`, `/judge`, `/staff`) | `npm run dev` (port 3001) | Vercel project 2, root directory `admin`, its own (sub)domain, for example `admin.<domain>` |
+| `backend/` | Node.js + Express + TypeScript API. **M1:** `GET /api/v1/health`, request ids, security headers, body limit, safe logging, graceful shutdown. **M2A:** MySQL 8 / SQLite database layer (Kysely, mysql2, `node:sqlite`), versioned migrations with checksums, environment guards. **M2B: 18 application tables and a results view (MySQL and SQLite migrations, tested), no seed data. **M3: staff sign-in** (`/api/v1/staff/login|logout|me|password`, Argon2id, database sessions, CSRF, rate limits, `staff:create-admin` command), not yet used by the Next apps. No registration yet** | `npm run dev` (port 4000) | **not deployed**; planned as a Railway service with root directory `backend` (no Railway resource exists) |
+| `database/` | Supabase migrations, seed, templates, SQL tests and the guarded DEV tooling | `npm test`, `npm run db:dev:*` | not deployed; migrations are applied as in section 6 |
+
+Backend commands (inside `backend/`; Node 24): `npm install`, then `npm run dev` (reads git-ignored `.env.local` if present, restarts on change), `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm start` (runs `dist/`). Database scripts: `npm run db:migrate`, `db:status`, `db:verify` (also run by CI; checks that `migrations/mysql` and `migrations/sqlite` match), and `db:reset:test` (drops every table of the TEST database only). Variables: see `backend/.env.example`. For Railway leave `HOST` unset (it binds `0.0.0.0` when `NODE_ENV=production`) and let Railway provide `PORT`.
+
+Backend database rules (enforced by `backend/src/config.ts`, tested): `sqlite` is refused in production; a MySQL `DATABASE_URL` must have a host equal to `DB_ALLOWED_HOST`; under `NODE_ENV=test` the database must be local and named `*_test` (or SQLite `:memory:`/`*.test.sqlite`), and tests read only `RIO_TEST_*` variables, never `DATABASE_URL`; a `*_test` database is refused outside tests and a loopback database is refused in production. A production migration runs only with `RIO_CONFIRM_MIGRATE=<database name>` for that command. Local development database name: `rio_hospital` on the XAMPP MariaDB (`DB_ENGINE=mariadb`, migrations in `backend/migrations/mariadb/`; no Docker is used or needed); automated tests never run on `rio_hospital`: they create and drop tables, so the configuration refuses any test database whose name does not end in `_test`, and there is no standing test database (see `backend/LOCAL_DEVELOPMENT.md`). Production is MySQL 8 (`DB_ENGINE=mysql`, the default; `mariadb` is refused in production). Full workflow: `backend/LOCAL_DEVELOPMENT.md`.
+
+Each of the website and the admin carries its own copy of the small amount of code both need (Supabase clients, staff and auth checks, schemas, styles).
+A change to one of those files (`lib/supabase`, `lib/auth`, `lib/staff/auth|messages|paths`, `lib/registration/consent|date|settings`, `lib/events.ts`, `lib/storage`,
+`components/auth/bilingual|submit-button`, `components/ui/icon`, `lib/fonts.ts`, `app/globals.css`) must be made in both folders.
+The tests in `database/supabase/tests` that exercise application code read the `website` and `admin` folders next to it, and the two static guards in `admin/tests`
+(`admin-boundary.test.ts`, `boundary.test.ts`) read the `website` folder next to `admin`; everything else runs inside its own folder.
+
+Each site has its own environment variables: see `website/.env.example`, `admin/.env.example` and `database/.env.example`. The secret key and the staff switches (`RIO_STAFF_*`,
+`RIO_PLAYBACK_ENABLED`) belong to the admin project only; the upload, finalize and e-mail settings belong to the website project only; both need the same Supabase project
+values. Set `NEXT_PUBLIC_ADMIN_URL` on the website to the admin site address (it only builds the "Staff login" links). Staff sessions live on the admin domain, so staff
+sign in on the admin site. Where this file says "the app", read the site named by the folder above.
+
 ## 1. Completed functionality
 
 "DEV-live" = exercised once against the real DEV Supabase project and the real DEV R2 bucket (journey, brief §32). "Offline" = automated tests only.

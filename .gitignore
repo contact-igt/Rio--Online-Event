@@ -1,26 +1,25 @@
 # dependencies
-/node_modules
-/.pnp
+node_modules/
+.pnp
 .pnp.*
 
 # next.js
-/.next/
-/.next-*/
-/out/
+.next/
+.next-*/
+out/
 next-env.d.ts
 
 # build and test output
-/build
-/coverage
-/playwright-report/
-/test-results/
+build/
+coverage/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
-# secrets: never commit. Only .env.example (names, no values) is tracked.
+# secrets: never commit. Only the .env.example files (names, no values) are tracked.
 .env
 .env.*
 !.env.example
-.env.live
 
 # deployment
 .vercel
@@ -28,7 +27,6 @@ next-env.d.ts
 # logs and OS files
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
 .DS_Store
 Thumbs.db
@@ -40,11 +38,10 @@ Thumbs.db
 graphify-out/
 
 # supabase CLI local state (may record a linked hosted project)
-supabase/.temp/
-supabase/.branches/
-supabase/.env
+database/supabase/.temp/
+database/supabase/.branches/
+database/supabase/.env
 
 # design reference mock-ups and review screenshots (not part of the product)
 /design-references/
 /screenshots/
-

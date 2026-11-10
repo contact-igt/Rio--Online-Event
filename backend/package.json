@@ -1,0 +1,41 @@
+{
+  "name": "@rio/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env.local --watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "node --env-file-if-exists=.env.local src/db/cli.ts migrate",
+    "db:status": "node --env-file-if-exists=.env.local src/db/cli.ts status",
+    "db:verify": "node --env-file-if-exists=.env.local src/db/cli.ts verify",
+    "db:reset:test": "node --env-file-if-exists=.env.test.local src/db/cli.ts reset-test",
+    "staff:create-admin": "node --env-file-if-exists=.env.local src/auth/cli.ts create-admin",
+    "staff:reset-password": "node --env-file-if-exists=.env.local src/auth/cli.ts reset-password",
+    "db:ready": "node --env-file-if-exists=.env.local src/db/cli.ts ready",
+    "db:seed:events": "node --env-file-if-exists=.env.local src/db/seed-events-cli.ts",
+    "test:local": "node --env-file-if-exists=.env.test.local node_modules/vitest/vitest.mjs run",
+    "test:mariadb": "node --env-file-if-exists=.env.test.local src/db/test-mariadb.ts"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "kysely": "^0.29.8",
+    "mysql2": "^3.24.6",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^5.1.0"
+  }
+}

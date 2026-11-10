@@ -1,0 +1,29 @@
+{
+  "name": "@rio/database",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "test:pg17": "node scripts/test-pg17.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "db:dev:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.live scripts/db-dev.ts check",
+    "db:dev:dry-run": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.live scripts/db-dev.ts dry-run",
+    "db:dev:push": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.live scripts/db-dev.ts push",
+    "db:dev:inspect": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.live scripts/db-dev.ts inspect",
+    "db:dev:advisors": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.live scripts/db-dev.ts advisors",
+    "test:live": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.live scripts/db-dev.ts check-live && node --env-file-if-exists=.env.live node_modules/vitest/vitest.mjs run --config supabase/live-tests/vitest.live.config.mts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
+    "pglite-pg17": "npm:@electric-sql/pglite@^0.3.16",
+    "@supabase/supabase-js": "^2.119.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.39.5",
+    "supabase": "^3.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

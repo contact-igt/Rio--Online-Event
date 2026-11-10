@@ -1,0 +1,271 @@
+@import "tailwindcss";
+/* Class names used by the shared components; each app scans its own files by default. */
+@source "../";
+
+/*
+ * Rio design tokens (final redesign, 2026-11-06). Navy and pink follow the approved mock-ups; the values were adjusted only where a
+ * measured contrast failed. Contrast is checked in the browser tests, not assumed:
+ *   white on CTA rose 4.98 | navy on white 10.9 | navy on blush 10.2 | navy on mist 9.5 | slate on white 7.6 | rose on white 4.98
+ *   pink-soft on navy 5.0 | white on navy 10.9.
+ * The mock-up pink (#EE3F86) has only 3.7:1 against white text, so button fills and pink TEXT use the deeper rose; the mock-up pink is
+ * kept for rings, icons and large decorative shapes. Pink text on navy uses pink-soft.
+ */
+:root {
+  --rio-navy: #173b78; /* headings, strips, panels */
+  --rio-blue: #1d4f91; /* links, focus ring */
+  --rio-pink: #ee3f86; /* decorative: rings, icon tints, shapes (never small text) */
+  --rio-rose: #d4206b; /* primary button fill and pink text on light backgrounds (AA) */
+  --rio-rose-dark: #b3195a; /* button hover */
+  --rio-pink-soft: #ff8db8; /* pink text and icons on navy (AA) */
+  --rio-blush: #fff1f6; /* soft pink sections and cards */
+  --rio-mist: #eaf4fc; /* light blue sections */
+  --rio-ink: #14213d; /* body text (never #000) */
+  --rio-slate: #475569; /* secondary text */
+  --rio-line: #6b7fa3; /* form control borders (4.0:1 on white) */
+  --rio-error: #b3261e;
+  --rio-ok: #17683d;
+}
+
+@theme inline {
+  --color-rio-navy: var(--rio-navy);
+  --color-rio-blue: var(--rio-blue);
+  --color-rio-pink: var(--rio-pink);
+  --color-rio-rose: var(--rio-rose);
+  --color-rio-rose-dark: var(--rio-rose-dark);
+  --color-rio-pink-soft: var(--rio-pink-soft);
+  --color-rio-blush: var(--rio-blush);
+  --color-rio-mist: var(--rio-mist);
+  --color-rio-ink: var(--rio-ink);
+  --color-rio-slate: var(--rio-slate);
+  --color-rio-line: var(--rio-line);
+  --color-rio-error: var(--rio-error);
+  --color-rio-ok: var(--rio-ok);
+  --font-display: var(--font-baloo), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-hind), ui-sans-serif, system-ui, sans-serif;
+  /* Section headings: Anek Tamil covers Tamil letters only, so any English in a heading stays in Baloo. */
+  --font-heading: var(--font-anek), var(--font-baloo), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-padding-top: 5rem;
+}
+
+body {
+  background: #fff8fb;
+  color: var(--rio-ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  /* Tamil script has tall ascenders and deep descenders; keep generous leading and zero tracking. */
+  line-height: 1.7;
+  letter-spacing: 0;
+}
+
+/* In the base layer so Tailwind utilities (e.g. text-rio-pink-soft on a navy panel) can override them. */
+@layer base {
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    color: var(--rio-navy);
+    letter-spacing: 0;
+    /* Large display Tamil: 1.35 avoids a broken-looking gap at 80px; body copy stays at 1.7. */
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--rio-blue);
+    outline-offset: 2px;
+  }
+
+  .on-navy :focus-visible {
+    outline-color: var(--rio-pink-soft);
+  }
+}
+
+/* Shared building blocks: buttons, cards, form fields, soft backgrounds. Components compose these instead of repeating long class lists. */
+@layer components {
+  .btn {
+    display: inline-flex;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.5rem 1.5rem;
+    text-align: center;
+    font-weight: 700;
+    line-height: 1.4;
+    transition:
+      transform 150ms ease-out,
+      box-shadow 150ms ease-out,
+      background-color 150ms ease-out;
+  }
+  /* A label in two languages (Tamil span, then English span, nothing after) is stacked on two lines, as in the mock-ups. */
+  .btn:has(> span[lang="en"]:nth-child(2):last-child) {
+    flex-direction: column;
+    gap: 0;
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--rio-rose);
+    color: #fff;
+    box-shadow: 0 10px 20px -12px rgb(212 32 107 / 0.75);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--rio-rose-dark);
+  }
+  .btn-outline {
+    border: 2px solid var(--rio-navy);
+    background: #fff;
+    color: var(--rio-navy);
+  }
+  .btn-outline:hover:not(:disabled) {
+    background: var(--rio-blush);
+  }
+  .btn-light {
+    background: #fff;
+    color: var(--rio-navy);
+  }
+  .btn-light:hover:not(:disabled) {
+    background: var(--rio-blush);
+  }
+  .btn-primary:disabled,
+  .btn-outline:disabled {
+    opacity: 0.7;
+  }
+
+  .card {
+    border-radius: 1.5rem;
+    border: 1px solid rgb(23 59 120 / 0.08);
+    background: #fff;
+    box-shadow: 0 16px 32px -24px rgb(23 59 120 / 0.5);
+  }
+  .card-soft {
+    border-radius: 1.5rem;
+    background: linear-gradient(180deg, #fff 0%, var(--rio-blush) 100%);
+    border: 1px solid rgb(238 63 134 / 0.14);
+    box-shadow: 0 16px 32px -24px rgb(212 32 107 / 0.35);
+  }
+
+  /* Soft pink and light-blue wash behind a page or a hero. Pure CSS: no image, nothing to download. */
+  .wash {
+    background:
+      radial-gradient(48rem 26rem at 88% -6%, #ffd9e8 0%, transparent 62%),
+      radial-gradient(40rem 22rem at -4% 30%, var(--rio-mist) 0%, transparent 60%),
+      linear-gradient(180deg, #fff1f6 0%, #fff8fb 100%);
+  }
+
+  .field {
+    min-height: 3rem;
+    width: 100%;
+    border-radius: 0.875rem;
+    border: 1.5px solid var(--rio-line);
+    background: #fff;
+    padding: 0 1rem;
+    font-size: 1.0625rem;
+    color: var(--rio-ink);
+  }
+  .field:read-only,
+  .field-static {
+    background: #f1f5f9;
+    border-color: transparent;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 9999px;
+    background: var(--rio-blush);
+    padding: 0.15rem 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--rio-navy);
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rio-rose);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  .btn-primary:hover:not(:disabled),
+  .btn-outline:hover:not(:disabled),
+  .btn-light:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 14px 24px -12px rgb(212 32 107 / 0.8);
+  }
+
+  .lift {
+    transition:
+      transform 200ms cubic-bezier(0.23, 1, 0.32, 1),
+      box-shadow 200ms ease-out;
+  }
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 22px 36px -24px rgb(23 59 120 / 0.6);
+  }
+
+  .rise {
+    animation: rise 420ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* Upload progress bar: real percentage from the browser's upload events, drawn as a rounded rose bar. */
+@layer components {
+  progress {
+    appearance: none;
+    height: 0.75rem;
+    border: 0;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: var(--rio-mist);
+  }
+  progress::-webkit-progress-bar {
+    background: var(--rio-mist);
+  }
+  progress::-webkit-progress-value {
+    background: var(--rio-rose);
+    border-radius: 9999px;
+  }
+  progress::-moz-progress-bar {
+    background: var(--rio-rose);
+    border-radius: 9999px;
+  }
+}
