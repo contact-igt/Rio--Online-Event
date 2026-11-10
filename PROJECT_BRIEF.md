@@ -313,6 +313,15 @@ Nothing was invented or recreated. Logo and illustrations are **not** to be redr
 | M7 | **Public winners page `/results` built and tested offline (§33); release checklist in `DEPLOYMENT.md`; go/no-go 4 of 17 met; NOT READY.** Publication screen, staff screens, certificates not built | See §33 |
 | Staff login | **Built and tested offline (§34): `/staff/login`, role redirects, sign-out, DEV provisioning script; not run against DEV (no staff account yet)** | See §34 |
 | M8 | Not started (hardening, rate limiting B1, accessibility audit) | — |
+| Express migration M1 (2026-11-10) | **Backend foundation built and tested locally:** `backend/` (Express 5, TypeScript strict, zod-validated environment, `GET /api/v1/health`, request ids, security headers, body limit, redacting JSON logger, graceful shutdown, database adapter *interfaces* only). No database connection, tables, migrations, Auth or registration; Supabase and both Next apps untouched; nothing committed or deployed. The anonymous-registration, question-builder and `20261110001000` work reported earlier is **not in this repository** (searched all refs, reflog and local folders). | `DEPLOYMENT.md` section 0, `backend/.env.example` |
+| Express migration M2A (2026-11-10) | **Database foundation built and tested locally:** `backend/src/db/` (adapter contract, MySQL pool and SQLite implementations over Kysely, sanitised errors, versioned migrations with SHA-256 checksums, `db:migrate/status/verify/reset:test`, environment guards). Tested on SQLite and on a disposable MySQL 8.0.46 container; CI job with a mandatory MySQL 8 service added but **not yet run on GitHub**. No application tables, no Supabase SQL ported, no Auth, `website/` and `admin/` untouched, nothing committed or deployed. | `DEPLOYMENT.md` section 0, `backend/.env.example`, `backend/migrations/README.md` |
+| Express migration M2B (2026-11-10) | **Application schema built and tested locally, schema only:** ten paired MySQL and SQLite migrations (`backend/migrations/*/0001` to `0010`, 18 tables and the `published_winners` view), typed Kysely rows (`src/db/schema.ts`), `checkReadiness()` (`src/db/readiness.ts`, no route). Invariants enforced by constraints and triggers and proven on MySQL 8.0.46 and SQLite (447 backend tests with MySQL, 295 on SQLite alone). No Auth, no API route, no seed data, no Supabase code or data touched, `website/` and `admin/` untouched, nothing applied to any hosted database, nothing committed or deployed. Open business rules R1 to R13 and the transaction-level rules for M4/M5 are listed in `backend/migrations/README.md`. | §41, `backend/migrations/README.md` |
+| Express migration M3 (2026-11-10) | **Staff authentication built and tested locally, backend only:** `POST /api/v1/staff/login`, `POST /logout`, `GET /me`, `POST /password` in `backend/src/auth/`; Argon2id (Node built-in), opaque HttpOnly cookie sessions checked in the database on every request, admin and judge authorization, forced first-login password change, database-backed shared login rate limits, Origin allow-list and CSRF header, audited login/logout/password changes, `staff:create-admin` and `staff:reset-password` commands. Tested on MySQL 8.0.46 and SQLite (642 backend tests with MySQL, 414 on SQLite alone) and by a smoke run of the compiled server. No website or admin file changed, no Supabase touched, nothing applied to a hosted database, nothing committed or deployed. Registration is still closed and no registration route exists. | §42 |
+| Express migration M4 (2026-11-10) | **Anonymous registration built and tested locally, backend only:** `GET /events`, `GET /settings/public`, `POST /registrations`, `POST /registrations/recover`, `GET` and `PATCH /registrations/current` in `backend/src/registration/`; no OTP or parent account, recovery by a 120-bit code stored as SHA-256 (HttpOnly cookie or typed on another device), duplicate flagging for admin review (never blocking, never revealed), Tamil-safe NFC normalisation, +91 mobile normalisation, separate guardian and media consent, competition-specific questions bound to the published set, server-side window check, Origin/CSRF/CORS, shared database rate limits. Migration 0011 makes the guardian e-mail optional (SQLite rebuild via a new runner marker). Tested on MySQL 8.0.46 and SQLite (955 backend tests with MySQL, 607 on SQLite alone) and by a smoke run of the compiled server. No website or admin file changed, no Supabase touched, nothing applied to a hosted database, nothing committed or deployed. **Registration is still closed** (settings untouched, no data seeded). | §43 |
+| Docker-free local development (2026-11-10) | **Partly done, blocked on database credentials:** Docker is not used; no Docker file ever existed in the repository (one documentation sentence replaced). MariaDB variants of the migrations, `DB_ENGINE`, `db:ready`, read-only `db:status` and `backend/LOCAL_DEVELOPMENT.md` are written and tested on SQLite; **nothing has run on the XAMPP MariaDB**, `rio_hospital` was not inspected or modified, no `.env.local` exists. | §44 |
+| Local development finalisation (2026-11-10) | **Local database ready, tests on MariaDB blocked:** `rio_hospital` on the XAMPP MariaDB has all 11 migrations, the six competitions (`db:seed:events`) and closed registration; local origins configured; `.env.example` recreated; origin parser now refuses wildcard-looking hosts; `test:mariadb` runner built and BLOCKED for lack of a dedicated test account. Admin account not created (awaiting an approved e-mail). 728 backend tests pass on SQLite only; nothing verified by a MariaDB or MySQL 8 test run. | §45 |
+| MariaDB security and frontend readiness (2026-11-10) | **Read-only inspection; MariaDB tests still BLOCKED.** MariaDB listens on all interfaces under live Public-profile firewall Allow rules, all root and pma accounts have no password, and the XAMPP data folder shows InnoDB/Aria inconsistencies (proposals only, nothing changed). The guide's test-account grant had lost its escape characters: fixed and now test-guarded. Neither Next app calls the Express API; recommended next module M5a (administrator API). | §46 |
+| Local administrator sign-in via Express (2026-11-10) | **Done locally.** Admin sign-in, forced password change, `/admin`, refresh and sign-out run against the Express staff API; real-browser smoke test 20/20 on a throwaway database. Data screens show an explicit "not available yet" state. Nothing committed. | §47 |
 
 ---
 
@@ -1887,3 +1896,199 @@ Migrations 00800 and 00900 are applied to the DEV project (guarded push; catalog
 - `RIO_UPLOADS_ENABLED=no`, `RIO_FINALIZE_ENABLED=no`, `RIO_PLAYBACK_ENABLED=no`, `RIO_EMAIL_ENABLED=no`, `RIO_STAFF_INVITES_ENABLED=no`, `RIO_STAFF_PROVISIONING_ENABLED=no` (or unset: only the exact value `yes` enables anything).
 - `SUPABASE_SECRET_KEY` is not needed while provisioning is off, and must not be set in a Preview that also has the switch on until the owner decides to test. No production value in Preview.
 - `R2_ACCOUNT_ID` is a build-time value (the Content-Security-Policy). Nothing else R2 is needed while uploads and playback are off.
+
+## 41. Express migration M2B: application schema (2026-11-10), local only
+
+Scope: schema only. Auth, API routes, seed data, the Next apps and every Supabase resource are untouched. Nothing was applied to any hosted database.
+
+### 41.1 What was built
+- `backend/migrations/mysql` and `backend/migrations/sqlite`: ten paired files (staff accounts, audit log, events and settings, question sets, submissions and recovery, answers, duplicate reviews, video uploads, judging, e-mail outbox and rate limits). Tables, relationships, invariants, the list of rules that need a transaction in M4/M5, the dialect differences and the unresolved business rules R1 to R13 are in `backend/migrations/README.md`.
+- `backend/src/db/schema.ts`: Kysely row types. `adapter.ts` now uses them (`DatabaseSchema`).
+- `backend/src/db/readiness.ts`: `checkReadiness()` reports ready / migrations missing / pending / unsafe / unavailable without changing anything. No route uses it yet (`/api/v1/health` stays a liveness check).
+- `errors.ts`: trigger-raised rule violations are `constraint` of kind `rule` (MySQL error 1644, SQLite 1811). `reset.ts` also drops views.
+- M2A leftovers closed: session `sql_mode` and UTC proven on every pooled MySQL connection (`readiness.test.ts`), SQLite WAL, foreign keys and busy timeout proven on a file database, readiness tested on both engines.
+
+### 41.2 Acceptance evidence (run 2026-11-10 inside `backend/`)
+| Check | Result |
+|---|---|
+| `npm run lint`, `npm run typecheck`, `npm run build` | pass |
+| `npm test` with a disposable MySQL 8.0.46 (`RIO_REQUIRE_MYSQL_TESTS=yes`) | 11 files, 447 tests pass |
+| `npm test` without MySQL (SQLite only) | 295 pass, 2 skipped (the MySQL-only `sql_mode` tests) |
+| `src/db/schema.test.ts` repeated three times on MySQL and SQLite | 224 of 224 each time, no flakiness |
+| `npm run db:verify` | "Dialect folders match" |
+| `db:migrate`, `db:status`, second `db:migrate` on an empty throw-away MySQL | applied 0001 to 0010; all `applied`; "Nothing to apply" |
+
+### 41.3 Follow-ups (not done, outside M2B)
+- The CI `backend` job (MySQL service) has still never run on GitHub.
+- An adapter that is closed before its first query connects afresh on its next use; one closed after use refuses (M2A test). Harmless today; worth making uniform before services hold adapters.
+- No seed for the six competitions or their question sets; an owner decision and a later module.
+- `DEPLOYMENT.md` section 0 and `CLAUDE.md` should be reread when M3 starts; the password-hash algorithm, recovery-code design and the open rules R1 to R13 need owner decisions first.
+
+## 42. Express migration M3: staff authentication (2026-11-10), local only
+
+Scope: backend only. The Next apps still sign staff in through Supabase; nothing was switched over. No migration was added (M2B already had `staff_users`, `staff_sessions`, `audit_log`, `rate_limits`).
+
+### 42.1 Design
+- **Passwords:** Argon2id from `node:crypto` (no dependency), stored as a PHC string that records its own cost, upgraded at the next login when the settings rise. Production refuses less than 19456 KiB and 2 passes. NFKC-normalised, 12 to 128 characters, the same rules as the Supabase provisioning code.
+- **Sessions:** a 256-bit random token in an HttpOnly, host-only cookie (`__Host-rio_staff` when Secure); the database keeps only its SHA-256. Absolute life 8 h, idle 60 min (both configurable). Every request re-reads the session, the account's `active` flag and its role, so deactivation, demotion and revocation act at once.
+- **CSRF and origin:** every state-changing request needs an `Origin` from `ALLOWED_ORIGINS` and an `X-CSRF-Token` that is an HMAC of the session token (no extra column or secret). CORS answers only the allowed origins, with credentials, never `*`.
+- **Rate limits:** per IP (30 per 15 min) and per e-mail (8 per 15 min) for login, per account (10 per hour) for password attempts; counters live in `rate_limits` as SHA-256 digests, so all instances share them. Limited callers get 429 whatever the password was.
+- **First login:** an account with `must_change_password` can only reach `/me`, `/password` and `/logout`. Changing the password needs the current one, ends every session of the account and issues a new one.
+- **Bootstrap:** `npm run staff:create-admin -- --email ... --name ...` (refuses when an active admin exists unless `--additional`) and `staff:reset-password`; a random temporary password is printed once and stored only hashed; in production they need `RIO_CONFIRM_STAFF_CLI=<database name>`.
+- **Audit:** `staff.login`, `staff.login_failed` (reason code only), `staff.login_rate_limited` (once per window), `staff.logout`, `staff.password_changed`, `staff.password_change_failed`, `staff.password_reset`, `staff.created`. No password, token, e-mail address or IP address is ever written.
+- `createApp` takes the opened database; `server.ts` now opens it at start-up (lazy pool) and closes it on shutdown. `/api/v1/health` is unchanged and still touches nothing.
+
+### 42.2 Evidence (run 2026-11-10 inside `backend/`)
+| Check | Result |
+|---|---|
+| lint, typecheck, build, `db:verify` | pass |
+| `npm test` with a disposable MySQL 8.0.46 | 14 files, 642 tests pass |
+| `npm test` on SQLite only | 414 pass, 2 skipped (MySQL-only `sql_mode` tests) |
+| `src/auth` suite three times on both engines | 181 of 181 each time |
+| compiled server smoke run (SQLite file): migrate, create-admin, wrong password 401, foreign origin 403, login, me, forced password change, old cookie 401, logout 204 | pass; no secret in any table or in the server log |
+
+### 42.3 Remaining blockers and follow-ups
+- **Not connected:** neither Next app calls these endpoints yet. Wiring `admin/` to them is a separate, approved step; cookies need the admin site and the API on one registrable domain (or `SESSION_COOKIE_SAMESITE=none`), and the API's public origin on Railway is not decided.
+- **Per-account limit is a denial-of-service lever:** anyone can send 8 bad attempts for a known staff e-mail and block that person's login for up to 15 minutes. The per-IP limit slows this, nothing prevents it. Accepted for now; limiting per e-mail and IP together would weaken protection against distributed guessing.
+- `TRUST_PROXY_HOPS` must be set correctly in production (1 on Railway) or the IP limit sees only the proxy.
+- No judge creation, deactivation or reset **endpoints** yet (M5); the service function `resetPassword` and the rules (an inactive judge cannot sign in, sessions are re-checked per request) exist. A judge deactivation must still revoke that judge's sessions in the same transaction (the check already rejects them, but the rows would stay open).
+- No periodic purge of expired sessions and old `rate_limits` rows (`RateLimiter.purge` exists; a job does not).
+- No concurrent-session cap; a login replaces only the session of the cookie it arrived with.
+- The compiled server was exercised on SQLite only; the MySQL path is covered by the integration tests, not by a running server.
+- The CI `backend` job has still never run on GitHub.
+
+## 43. Express migration M4: anonymous registration (2026-11-10), local only
+
+Scope: backend only. No OTP and no parent accounts. The Next apps still use Supabase registration; nothing was switched over. Registration is **not open**: `event_settings` is untouched (all NULL), and no code in this module can open it.
+
+### 43.1 Routes (all under `/api/v1`, JSON only, strict bodies)
+| Route | Purpose |
+|---|---|
+| `GET /events` | Active competitions with ages and the bilingual published question set (no ids). |
+| `GET /settings/public` | `registrationOpen`, the window, the consent **versions** (never any wording), server time. |
+| `POST /registrations` | Creates a draft. Needs an Origin from `PUBLIC_ORIGINS`. Returns the entry reference, the recovery code (once, in six groups of four), a CSRF token, and sets an HttpOnly cookie. |
+| `POST /registrations/recover` | Opens an entry on another device with the typed code. One identical 401 for every failure. |
+| `GET /registrations/current` | The entry the cookie opens (the owner's own data, with its questions and answers). |
+| `PATCH /registrations/current` | Edits a draft: child, guardian, e-mail, consent, answers. Needs Origin and CSRF. |
+
+### 43.2 Security model
+- **Only the recovery code opens an entry.** 24 characters of Crockford base32 (120 bits), SHA-256 digest stored (`registration_recovery`), the same value in an HttpOnly, SameSite, host-only cookie (`__Host-rio_reg` when Secure). Lifetime `REGISTRATION_TOKEN_DAYS` (default 30). Not rotated on use. A name, a mobile number or an entry reference is never accepted as a way in.
+- **No enumeration.** Creating an entry for a child who already has a submitted entry returns the same status and shape as any other. The duplicate is only recorded, as `duplicate_reviews` status `flagged` (matched against a finalized or held entry with the same normalised child name, mobile and competition). Recovery failures, the cookie check and the rate-limit answers are identical whatever exists.
+- **Duplicates.** Never blocked at registration. The database's unique key on `(competition, normalised name, mobile, finalized)` remains the real guard when an entry is finalized (M6/M7), so no race can produce two finalized entries. Siblings on one mobile, the same child in another competition and the same name with another mobile do not match.
+- **Normalisation** (`registration/normalize.ts`): NFC and collapsed white space for display text; a separate lower-cased key with joiners removed and `. , ' ’ - _` treated as spaces for matching; mobile numbers reduced to `+91` and ten digits from many written forms, including Tamil and Devanagari digits; e-mail lower-cased. Tamil is never transliterated.
+- **Eligibility and consent.** Age is checked against the competition's range (the database trigger repeats it); guardian consent must be an explicit `accepted: true` for the version in force (`409 consent_version_changed` otherwise); media consent is separate and optional (never asked / declined / granted). The registration window is checked on the server at create and at every edit.
+- **Origin, CSRF, CORS.** Changes need an Origin from `PUBLIC_ORIGINS` (a separate list from the admin's `ALLOWED_ORIGINS`: the public site can never call a staff route, nor the admin site a registration change). Edits also need the `X-CSRF-Token` returned with every response. CORS answers only the two lists, with credentials, never `*`.
+- **Rate limits (shared, in the database):** creation 15 per hour per address and 10 per day per mobile number; recovery 10 per 15 minutes per address; reads 300 per 15 minutes per address; writes 200 per hour per entry. The limiter was made exact under bursts (see 43.4).
+- **Privacy.** No name, mobile, e-mail, code or address is written to the audit log, the rate-limit table, the logs or an error. Validation errors name the field and a fixed problem code only. Audit: `registration.created`, `registration.recovered`, `registration.consent_recorded`, `registration.duplicate_flagged` (ids and labels).
+- **M3 preserved:** the staff cookie and the registration cookie differ in name and table; each opens nothing on the other side (tested both ways).
+
+### 43.3 Schema change
+Migration `0011_optional_guardian_email` makes `submissions.guardian_email` nullable (MySQL `ALTER`; SQLite table rebuild) and fixes the "submitted entry is frozen" trigger to compare it null-safely. The SQLite rebuild needs foreign-key enforcement off, so the migration runner gained an opt-in marker, `-- rio:foreign-keys-off` (enforcement off, `PRAGMA foreign_key_check` before commit, enforcement always restored). Details: `backend/migrations/README.md`.
+
+### 43.4 Defects found and fixed during M4
+1. The SQLite rebuild passed on an empty database and **failed on a populated one**; found by the data-preservation test, fixed with the marker above.
+2. The M3 rate limiter read the counter after the increment, so in a burst of simultaneous requests every request saw the final total and **all were refused** instead of the first `max`. It now returns its own exact count (MySQL `LAST_INSERT_ID(hits + 1)`, SQLite `RETURNING`). Staff login limits behave the same otherwise (suite re-run).
+3. A lone combining mark (a Tamil vowel sign) was accepted as a name; a name must now start with a letter.
+
+### 43.5 Evidence (run 2026-11-10 inside `backend/`)
+| Check | Result |
+|---|---|
+| lint, typecheck, build, `db:verify` | pass |
+| `npm test` with a disposable MySQL 8.0.46 | 18 files, 955 tests pass |
+| `npm test` on SQLite only | 607 pass, 2 skipped (MySQL-only `sql_mode` tests) |
+| `src/registration`, `src/auth`, migration 0011 and runner suites three times on both engines | 487 of 487 each time |
+| compiled server smoke run (SQLite file): closed 403, foreign origin 403, age 422, create 201, current, edit with and without CSRF, recovery on a second device in lower case, wrong code 401, recovery limit, edits visible across devices | pass; no code, name, mobile, e-mail or address in any table or log |
+
+### 43.6 Remaining blockers and follow-ups
+- **Not connected:** the website still registers through Supabase and OTP. Wiring `website/` (form, code screen, recovery screen) is a separate, approved module. Cookies need the website and the API on one registrable domain, or `SESSION_COOKIE_SAMESITE=none`; the API's public origin is undecided.
+- **Delivery of the recovery code:** only the on-screen code exists. With an e-mail address the code could be mailed, but the outbox/provider path is a later module and an owner decision (R5). A parent who loses the code and clears the cookie cannot reopen the draft (by design; they register again).
+- **Open rules still undecided:** consent wording (R1, D5), duplicate criteria beyond exact matches (R6: similar names, twins), erasure and retention (R9/R10). No seed data: the six competitions and their question sets must be entered.
+- **Not in M4:** video upload (R2), final submission (which also writes answer snapshots and holds a flagged entry for review), administrator duplicate review and settings screens, judge and results work, expired-code and rate-limit purge jobs, `required` question enforcement (reported as `missingRequired`, enforced at submission).
+- A second draft can be created for the same child and mobile (the unique key concerns finalized entries only); abandoned drafts are not cleaned up yet.
+- `PUBLIC_ORIGINS` empty means every registration change is refused; the server logs `public_origins_not_configured` at start-up.
+- The CI `backend` job has still never run on GitHub.
+
+## 44. Docker-free local development on XAMPP MariaDB (2026-11-10), local only
+
+Decision (owner): Docker is not used. Local development runs against the XAMPP database (MariaDB 10.4.32, `127.0.0.1:3306`, database `rio_hospital`). Production stays MySQL 8.
+
+### 44.1 State: partly done, blocked on database credentials
+| Task | State |
+|---|---|
+| Docker removed from the repository | **Done**: the repository never contained a Dockerfile, compose file, script or configuration; the one documentation sentence that recommended a Docker test database was replaced. Not touched: the GitHub Actions `backend` job (it uses a MySQL 8 service that GitHub starts; nothing runs on this machine) and `database/supabase/config.toml` (a comment about the old Supabase local stack). No Docker resource on the computer was touched. |
+| MariaDB compatibility | **Written, not run**: `backend/migrations/mariadb/0001..0011` (the reviewed MySQL files with only the two MySQL-8-only collation names replaced; a test enforces this), `DB_ENGINE` setting, server/engine guard, MariaDB CHECK error number 4025, `VALUES(col)` upsert, three-folder parity in `db:verify`. |
+| Connection to `rio_hospital`, inspection, tables | **Not done.** The permission system refused every login with a guessed account (`root`, empty password) because no credentials were given, which is correct. Nothing was read from or written to `rio_hospital`: its emptiness is unverified. No `backend/.env.local` was created. |
+| Tests on MariaDB | **Not run.** |
+
+One probe (before the permission system stopped further use) showed: XAMPP MySQL is running, port 3306, MariaDB 10.4.32, database `rio_hospital` exists, and the `root` account accepted an empty password (a security risk; see `backend/LOCAL_DEVELOPMENT.md`).
+
+### 44.2 Changes
+- `db:status` is now strictly read-only (it used to create the `rio_migrations` table when absent); new `db:ready` (real query + read-only migration check; `GET /api/v1/health` still does not touch the database); `test:local` script (reads `.env.test.local`).
+- Test runs print `[rio] MySQL/MariaDB integration tests were NOT RUN` whenever no test database is configured, so a SQLite-only result cannot pass for a MySQL or MariaDB result. `RIO_TEST_DB_ENGINE=mariadb` selects the MariaDB migrations for the test database.
+- `backend/LOCAL_DEVELOPMENT.md` explains the workflow, including the SQL the owner runs once in phpMyAdmin (databases `rio_hospital` and `rio_test`, accounts `rio_app` and `rio_test` limited to their own database, no `root` involved).
+
+### 44.3 MySQL 8 and MariaDB: what is and is not evidenced
+- MySQL 8.0.46 evidence from M2B to M4 (migrations, constraints, triggers, concurrency, M3, M4: 955 backend tests) was obtained earlier with a temporary test server that no longer exists. It was **not repeated** after the MariaDB changes (`DB_ENGINE`, error mapping, `VALUES(col)` upsert, `db:status` read-only, `db:ready`), which are covered on SQLite and by unit tests only.
+- Nothing has run on MariaDB. Known risk points to watch at the first run: expression defaults (`DEFAULT (UTC_TIMESTAMP(3))`), generated columns inside unique keys, `JSON_TYPE`/`JSON_LENGTH` checks on `LONGTEXT`, trigger and CHECK ordering, `REGEXP` (PCRE instead of ICU), `LAST_INSERT_ID(expr)` in the rate limiter, `CREATE OR REPLACE VIEW`, and the SQL-mode session settings. Error handling for a CHECK violation (4025) is mapped but untested against a server.
+- The GitHub Actions `backend` job (MySQL 8) has still never run.
+
+## 45. Local development finalisation on XAMPP MariaDB (2026-11-10), local only
+
+State of the local database `rio_hospital` (MariaDB 10.4.32, `127.0.0.1:3306`, `root` without a password, as chosen by the owner): migrations 0001 to 0011 applied from `backend/migrations/mariadb/`; 18 application tables, `rio_migrations`, the `published_winners` view; the six competitions seeded; **registration closed** (every `event_settings` date and consent version empty); no staff, no sessions, no entries, no question sets. `db:status` 11 applied, `db:ready` ready, `db:verify` match.
+
+### 45.1 What was added
+- `backend/.env.example` recreated (placeholders only, every name is read by `config.ts`). Secret-bearing files `.env`, `.env.local`, `.env.test.local` are git-ignored (`.gitignore` rules `.env` and `.env.*`).
+- `ALLOWED_ORIGINS=http://localhost:3001` (admin) and `PUBLIC_ORIGINS=http://localhost:3000` (public site) appended to `backend/.env.local`; nothing else in the file was changed. The API's own origin (4000) is in neither list. **Defect found and fixed:** the origin parser accepted `http://*` and `http://*.example.org` (the URL parser allows `*` in a host). Matching was always exact string equality, so it never acted as a wildcard, but such entries are now refused at start-up (test `origins.test.ts`).
+- `npm run db:seed:events [-- --dry-run]` (`src/db/seed-events.ts`, `seed/competitions.ts`): inserts the six competitions (slug, Tamil and English name, age range, poster order) from `website/lib/events.ts`; idempotent; never overwrites; stops with nothing written if an existing slug differs; leaves organizer-added competitions, order and the active flag alone; refuses production; proves the database identity and migration state first. A test reads `website/lib/events.ts` and fails if the list drifts. The task sentences (`taskTa`/`taskEn`) have no column and were not seeded; no dates, questions or consent text were created.
+- `npm run test:mariadb` (`src/db/test-mariadb.ts`, `test-runner-guards.ts`): disposable `rio_<12 hex>_test` database, dedicated account only, drop only after name, run and marker agree. **BLOCKED on this machine: no dedicated test account exists** (exit 3, nothing created, no fallback to root).
+
+### 45.2 Evidence
+| Check | Result |
+|---|---|
+| lint, typecheck, build, `db:verify` | pass |
+| `npm test` (SQLite only; no database variables in the shell) | 23 files, 728 pass, 2 skipped (MySQL-only `sql_mode` tests) |
+| Seed on `rio_hospital` | dry run, then 6 created, second run "Nothing to do" |
+| Running server (the owner's `npm run dev`, port 4000) | `/health` 200; `/settings/public` closed; `/events` exactly the six; CORS answers only 3000 and 3001; staff routes 401/403 without credentials; a complete valid registration from the public origin 403 `registration_closed` |
+| Left in the database by the smoke test | 2 rate-limit counters (digest-keyed) and the audit row `events.seeded`; nothing else |
+
+### 45.3 Not tested / blocked
+- **MariaDB integration tests: not run** (no dedicated test account). Runtime behaviour on MariaDB of constraints, triggers, the `REGEXP` rules, the rate limiter's `LAST_INSERT_ID` and the `VALUES()` upsert is unverified. MySQL 8 evidence predates these changes.
+- Admin account: **not created** (owner has not approved an e-mail address). Judge accounts: none.
+
+### 45.4 Security findings on this machine (nothing was changed)
+- MariaDB listens on **all network interfaces** (reachable on the LAN address) and Windows Firewall has two enabled inbound Allow rules named `mysqld` (Public profile).
+- All `root` accounts (`localhost`, `127.0.0.1`, `::1`) and `pma` have **no password**; none is a `'%'` account, so remote login as root is not possible, but any program on this computer can read every database on the server, including other projects' (`invictus`, `mypetmart`, `whatnexus`, `pixel_eye_blog_db`).
+- Privileges granted with `GRANT` did not survive `FLUSH PRIVILEGES` when tried (suspected: the server's privilege tables are not persisting); the dedicated test account therefore needs a check after a MySQL restart.
+- An R2 secret was printed into a session transcript by a faulty check on 2026-11-10 (since rotated by the owner, not verifiable here). `.env` is an extra, unused copy of `.env.local`.
+
+## 46. Local MariaDB security and test validation; frontend readiness (2026-11-10), read-only
+
+Nothing was changed on the machine or in `rio_hospital` (verified by row counts: events 6, audit_log 1, rate_limits 2, rio_migrations 11, everything else 0; registration closed; `rio_hospital` is the only `rio*` database).
+
+### 46.1 Security findings (proposals only; Windows Firewall, root credentials and `my.ini` were not touched)
+- MariaDB has no `bind-address`, so it listens on **all interfaces** and accepts connections on the LAN address and the WSL/Hyper-V address. Two enabled inbound Windows Firewall rules named `mysqld` (TCP and UDP, any port, any remote address, **Public** profile) apply, and the active network profile is "Wi-Fi: Public".
+- Accounts: `root@localhost`, `root@127.0.0.1`, `root@::1` and `pma@localhost`, **all without a password**. No `'%'` account exists, so a remote login as root is refused, but any program on the computer can read every database on the server (also `invictus`, `mypetmart`, `whatnexus`, `pixel_eye_blog_db`, `rti_saathi`).
+- Two inert leftover grants for an anonymous user on `test` and `test\_%`.
+- **The XAMPP data folder looks inconsistent.** The 12:54 start-up log reports InnoDB pages "in the future" (98,410,244 against a current 10,336,392: the redo logs do not match the data file), missing tablespace files for `mypetmart_test` and `rti_saathi`, `aria_log_control` is 0 bytes, and `mysql_upgrade_info` is absent (system tables from 2019, server 10.4.32). `rio_hospital` is not named in any error. This is the leading explanation (probable, not proven) for grants not surviving `FLUSH PRIVILEGES`.
+
+### 46.2 Test account and runner
+- `npm run test:mariadb` is unchanged and still **BLOCKED** (exit 3): no `RIO_TEST_SERVER_URL`, no dedicated account. No MariaDB integration test has run.
+- **Defect found and fixed:** the guide's grant had lost its backslashes (`rio_%_test` instead of `rio\_%\_test`), which would have made each `_` a one-character wildcard. A new test (`test-runner-guards.test.ts`) now reads the guide, requires the exact escaped pattern, forbids `WITH GRANT OPTION` and `ON *.*`, and proves the pattern matches every name the runner generates and none of the other databases on this server.
+
+### 46.3 Evidence
+lint, typecheck, build, `db:verify` pass; `npm test` (SQLite only): 23 files, 749 pass, 2 skipped; `db:status` 11 applied; `db:ready` ready.
+
+### 46.4 Frontend readiness
+See the report of this session: neither Next app calls the Express API yet (no reference to it anywhere); 17 website and 15 admin non-test files touch Supabase; the recommended next module is M5a (administrator API: event settings, question sets, registrations list and detail), because registration cannot be opened or used until a published question set exists.
+
+## 47. Local administrator sign-in through the Express API (2026-11-10), local only
+
+### 47.1 What changed (admin/ only; backend untouched)
+- `admin/lib/api/express.ts`: server-only helper. Calls `RIO_API_ORIGIN` (default `http://127.0.0.1:4000`) from server components and server actions, forwards the session cookie, sends `Origin` = `RIO_ADMIN_ORIGIN` (default `http://localhost:3001`, must be in the API's `ALLOWED_ORIGINS`) and the session's CSRF token on POSTs, and relays only the API's session cookie (`rio_staff`, `__Host-rio_staff` under Secure) to the browser: HttpOnly, SameSite as the API set it. The browser never calls the API, so `connect-src 'self'` is unchanged.
+- `/staff/login`, `/staff/set-password` (now asks for the current password too), sign-out, `requireStaff`/`staffSession` use `POST /staff/login`, `GET /staff/me`, `POST /staff/password`, `POST /staff/logout`. `proxy.ts` sends cookie-less visitors from `/admin` and `/judge` to the sign-in (a first gate only; the API is the real check) and sets `no-store`.
+- `/admin` shows the signed-in administrator and the six fixed competitions and an explicit "Not available yet" panel instead of counts/settings. Registrations, registration detail, judges, a competition page and the judge pages show the same plain placeholder; the judge/winner/assign server actions return "unavailable" and change nothing. No data is invented.
+- Local administrator `admin@rio.local` ("Rio Administrator") created with `npm run staff:create-admin` in `rio_hospital` (temporary password shown once in the terminal, `must_change_password` set).
+
+### 47.2 Not done / follow-ups
+- Legacy Supabase modules in admin/ are now unreachable from any page but still present (lib/supabase, lib/judging, lib/staff/{invites,provisioning}, `components/admin/*` forms, e2e fixtures and specs that fake Supabase). Remove when M5a replaces them; the e2e specs for the old flow need rewriting.
+- M5a (administrator API: settings, registrations, judges) is the next module. Per-address rate limits see the Next server's address unless the API runs with `TRUST_PROXY_HOPS=1`.

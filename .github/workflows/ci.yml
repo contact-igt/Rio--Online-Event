@@ -5,18 +5,71 @@ on:
   push:
     branches: [main]
 
+# Each folder is a separate project with its own package.json, lock file and node_modules.
 jobs:
   verify:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        folder: [website, admin, database]
+    defaults:
+      run:
+        working-directory: ${{ matrix.folder }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: ${{ matrix.folder }}/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - if: matrix.folder != 'database'
+        run: npm run build
+      - if: matrix.folder == 'website' || matrix.folder == 'admin'
+        run: npm run test:e2e
+
+  # The backend has its own job because its database tests need a real MySQL 8 server. They are mandatory here: if the service is missing
+  # the run fails instead of skipping (RIO_REQUIRE_MYSQL_TESTS). The credentials belong to a service container that GitHub starts for this job only (nothing runs on a developer machine) and that exists only for this
+  # job; they protect nothing.
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_only_root
+          MYSQL_DATABASE: rio_test
+          MYSQL_USER: rio_test
+          MYSQL_PASSWORD: ci_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci_only_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      RIO_REQUIRE_MYSQL_TESTS: "yes"
+      RIO_TEST_DATABASE_URL: mysql://rio_test:ci_only@127.0.0.1:3306/rio_test
+      RIO_TEST_DB_ALLOWED_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npm run test:e2e
+      # Both dialect folders must define the same migrations.
+      - run: npm run db:verify

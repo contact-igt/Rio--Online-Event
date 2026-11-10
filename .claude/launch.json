@@ -1,14 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    {
-      "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
-      "port": 3000
-    }
+    { "name": "website", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "website", "run", "dev"], "port": 3000 },
+    { "name": "admin", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "admin", "run", "dev"], "port": 3001 }
   ]
 }

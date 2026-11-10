@@ -1,0 +1,5 @@
+dist/
+# local SQLite development database (never commit data)
+data/
+*.sqlite
+*.sqlite-journal
